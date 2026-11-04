@@ -87,7 +87,7 @@ jobs:
       - name: Setup node and npm for new UI build
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version-file: awx/.nvmrc
           cache: 'npm'
           cache-dependency-path: awx/awx/ui/**/package-lock.json
 
