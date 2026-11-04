@@ -17,8 +17,13 @@
 # updater.sh uses these lines to comment out matching entries in requirements.txt
 # so they are not installed twice (once from git, once from PyPI).
 #
-certifi @ git+https://github.com/ansible/system-certifi.git@devel
-ansible-runner @ git+https://github.com/ansible/ansible-runner.git@devel
-awx-plugins-core[credentials-github-app] @ git+https://github.com/ansible/awx-plugins.git@devel
-django-ansible-base[feature-flags,jwt-consumer,rbac,resource-registry,rest-filters] @ git+https://github.com/ansible/django-ansible-base@devel
-awx-plugins-interfaces @ git+https://github.com/ansible/awx_plugins.interfaces.git
+# renovate: branch=devel
+certifi @ git+https://github.com/ansible/system-certifi.git@5aa52ab91f9d579bfe52b5acf30ca799f1a563d9
+# renovate: branch=devel
+ansible-runner @ git+https://github.com/ansible/ansible-runner.git@fb826c258ea6e74ac2502c70e4ff3014ee443e40
+# renovate: branch=devel
+awx-plugins-core[credentials-github-app] @ git+https://github.com/ansible/awx-plugins.git@9a537a5d9c99bb61d811a94b302d4d6f93ce1f51
+# renovate: branch=devel
+django-ansible-base[feature-flags,jwt-consumer,rbac,resource-registry,rest-filters] @ git+https://github.com/ansible/django-ansible-base@bf4d98d3d15fbdbf265c182f26fcc7c00028fa15
+# renovate: branch=devel
+awx-plugins-interfaces @ git+https://github.com/ansible/awx_plugins.interfaces.git@c5da08649d4d43e2bcdcd1bfa555464d6d477509

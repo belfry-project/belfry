@@ -6,7 +6,7 @@ UI_DIR := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 UI_LOCAL ?=
 
 ## Git repo and branch to the UI repo
-UI_GIT_REPO ?= https://github.com/ansible/ansible-ui.git
+UI_GIT_REPO ?= https://github.com/belfry-project/belfry-ui.git
 UI_GIT_BRANCH ?= main
 
 ## Product name to display on the UI used in UI build process
