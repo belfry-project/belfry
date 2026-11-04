@@ -1,12 +1,37 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "enabledManagers": ["tekton"],
-  "tekton": {
-    "enabled": true,
-    "automerge": true,
-    "schedule": ["* */12 * * 1-5"],
-    "postUpgradeTasks": {
-      "commands": []
+  "extends": ["github>belfry-project/.github"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Git dependencies pinned to a commit, following the branch named in the '# renovate: branch=' comment",
+      "managerFilePatterns": ["/^requirements/requirements_git\\.txt$/"],
+      "matchStrings": [
+        "# renovate: branch=(?<currentValue>\\S+)\\n(?<depName>[A-Za-z0-9_.-]+)(?:\\[[^\\]]*\\])? @ git\\+(?<packageName>https://\\S+?)@(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "datasourceTemplate": "git-refs"
+    },
+    {
+      "customType": "regex",
+      "description": "Receptor image copied into the Belfry image",
+      "managerFilePatterns": ["/^Makefile$/", "/^tools/.+/defaults/main\\.yml$/"],
+      "matchStrings": [
+        "(?<depName>quay\\.io/ansible/receptor):(?<currentValue>v[0-9.]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
     }
-  }
+  ],
+  "packageRules": [
+    {
+      "description": "requirements_git.txt is handled by the custom manager above",
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["requirements/requirements_git.txt"],
+      "enabled": false
+    },
+    {
+      "description": "Upstream git dependencies move together; requirements.txt must be regenerated with requirements/updater.sh",
+      "matchDatasources": ["git-refs"],
+      "groupName": "upstream git dependencies"
+    }
+  ]
 }

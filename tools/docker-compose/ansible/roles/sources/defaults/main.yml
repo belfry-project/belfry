@@ -8,7 +8,7 @@ pg_tls: false
 control_plane_node_count: 1
 minikube_container_group: false
 receptor_socket_file: /var/run/awx-receptor/receptor.sock
-receptor_image: quay.io/ansible/receptor:devel
+receptor_image: quay.io/ansible/receptor:v1.6.9@sha256:555994b7469304a7ea0d0eabe1841e374090047cf7f4c43af0c653e1405431c4
 ingress_path: /
 api_urlpattern_prefix: ''
 
