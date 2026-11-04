@@ -158,7 +158,7 @@ RUN rm -rf /root/.cache && rm -rf /tmp/*
 
 {% if (build_dev|bool) or (kube_dev|bool) %}
 # Install development/test requirements
-RUN dnf module -y enable nodejs:18 && dnf module -y install nodejs:18/common && \
+RUN dnf module -y enable nodejs:{{ nodejs_version }} && dnf module -y install nodejs:{{ nodejs_version }}/common && \
     dnf -y install \
     crun \
     gdb \
