@@ -4,7 +4,11 @@ import yaml
 import sys
 
 
-AWX_ENTRY = 'https://github.com/ansible/awx.git#/awx_collection/'
+AWX_ENTRIES = (
+    'https://github.com/belfry-project/belfry.git#/awx_collection/',
+    'https://github.com/ansible/awx.git#/awx_collection/',
+    'awx.awx',
+)
 
 
 def load_yaml_file(fname):
@@ -20,13 +24,13 @@ def write_yaml_file(fname, data):
 
 def replace_awx(data, path):
     for entry in data['collections']:
-        if entry['name'] == AWX_ENTRY or entry['name'] == 'awx.awx':
+        if entry['name'] in AWX_ENTRIES:
             entry['name'] = f'file://{path}#/awx_collection/'
             entry['type'] = 'git'
             entry.pop('version', None)
             return data
 
-    raise ValueError(f"Failed to find {AWX_ENTRY} in {data}")
+    raise ValueError(f"Failed to find any of {AWX_ENTRIES} in {data}")
 
 
 def run(fname, awx_path):
