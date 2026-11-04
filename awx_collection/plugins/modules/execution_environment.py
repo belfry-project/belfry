@@ -66,7 +66,7 @@ EXAMPLES = '''
 - name: Add EE to the controller instance
   execution_environment:
     name: "My EE"
-    image: quay.io/ansible/awx-ee
+    image: ghcr.io/belfry-project/belfry-ee
 '''
 
 
