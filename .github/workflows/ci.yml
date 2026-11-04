@@ -4,54 +4,15 @@ env:
   LC_ALL: "C.UTF-8" # prevent ERROR: Ansible could not initialize the preferred locale: unsupported locale setting
   CI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DEV_DOCKER_OWNER: ${{ github.repository_owner }}
-  COMPOSE_TAG: ${{ github.base_ref || github.ref_name || 'devel' }}
+  COMPOSE_TAG: ${{ github.base_ref || github.ref_name || 'main' }}
   UPSTREAM_REPOSITORY_ID: 91594105
 on:
   pull_request:
   push:
     branches:
-      - devel  # needed to publish code coverage post-merge
-  schedule:
-    - cron: '0 11,17 * * 1-5'
+      - main  # needed to publish code coverage post-merge
   workflow_dispatch: {}
 jobs:
-  trigger-release-branches:
-    name: "Dispatch CI to release branches"
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Trigger CI on release_4.6
-        id: dispatch_release_46
-        continue-on-error: true
-        run: gh workflow run ci.yml --ref release_4.6
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-      - name: Trigger CI on stable-2.6
-        id: dispatch_stable_26
-        continue-on-error: true
-        run: gh workflow run ci.yml --ref stable-2.6
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-      - name: Trigger CI on stable-2.7
-        id: dispatch_stable_27
-        continue-on-error: true
-        run: gh workflow run ci.yml --ref stable-2.7
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-      - name: Check dispatch results
-        if: steps.dispatch_release_46.outcome == 'failure' || steps.dispatch_stable_26.outcome == 'failure' || steps.dispatch_stable_27.outcome == 'failure'
-        run: |
-          echo "One or more dispatches failed:"
-          echo "  release_4.6: ${{ steps.dispatch_release_46.outcome }}"
-          echo "  stable-2.6: ${{ steps.dispatch_stable_26.outcome }}"
-          echo "  stable-2.7: ${{ steps.dispatch_stable_27.outcome }}"
-          exit 1
-
   common-tests:
     name: ${{ matrix.tests.name }}
     runs-on: ubuntu-latest
@@ -226,8 +187,8 @@ jobs:
       - name: Checkout awx-operator
         uses: actions/checkout@v4
         with:
-          show-progress: false\
-          repository: ansible/awx-operator
+          show-progress: false
+          repository: belfry-project/belfry-operator
           path: awx-operator
 
       - name: Setup python, referencing action at awx relative path
@@ -283,7 +244,7 @@ jobs:
         env:
           AWX_TEST_IMAGE: local/awx
           AWX_TEST_VERSION: ci
-          AWX_EE_TEST_IMAGE: quay.io/ansible/awx-ee:latest
+          AWX_EE_TEST_IMAGE: ghcr.io/belfry-project/belfry-ee:latest
           STORE_DEBUG_OUTPUT: true
 
       - name: Collect awx-operator logs on timeout
