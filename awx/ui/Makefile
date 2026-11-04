@@ -12,6 +12,9 @@ UI_GIT_BRANCH ?= main
 ## Product name to display on the UI used in UI build process
 PRODUCT ?= AWX
 
+## Required Node.js major version, shared with the image build and CI
+NODE_MAJOR := $(shell cat $(UI_DIR)/../../.nvmrc)
+
 .PHONY: ui
 ## Default build target of ui Makefile, builds ui/build
 ui: ui/build
@@ -89,8 +92,8 @@ $(UI_DIR)/src/node_modules/webpack:
 	@echo "=== Installing webpack ==="
 	@cd $(UI_DIR)/src && \
 	  maj=$$(node -p "process.versions.node.split('.')[0]"); \
-	  if [ "$$maj" != "18" ]; then \
-	    echo "Error: Need Node 18.x; found $$(node -v)" >&2; \
+	  if [ "$$maj" != "$(NODE_MAJOR)" ]; then \
+	    echo "Error: Need Node $(NODE_MAJOR).x; found $$(node -v)" >&2; \
 	    exit 1; \
 	  fi; \
 	  npm install webpack
