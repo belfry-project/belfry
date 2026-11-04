@@ -55,9 +55,9 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Setup node and npm for the new UI build
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version-file: .nvmrc
         if: matrix.build-targets.image-name == 'awx'
 
       - name: Prebuild new UI for awx image (to speed up build process)
