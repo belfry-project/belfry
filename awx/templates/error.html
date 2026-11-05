@@ -1,7 +1,7 @@
 {% extends "rest_framework/api.html" %}
 {% load i18n static %}
 
-{% block title %}{{ name }} &middot; {% trans 'AWX' %}{% endblock %}
+{% block title %}{{ name }} &middot; {% trans 'Belfry' %}{% endblock %}
 
 {% block style %}
 {{ block.super }}
@@ -18,7 +18,7 @@ div.response-info span.meta {
     <div class="container">
       <div class="navbar-header">
         <a class="navbar-brand" href="/">
-          <img class="logo" src="{% static 'media/logo-header.svg' %}" alt="AWX">
+          <img class="logo" src="{% static 'media/logo-header.svg' %}" alt="Belfry">
         </a>
         <a class="navbar-title" href="{{ request.get_full_path }}">
           <span>&nbsp;&mdash; {{name}}</span>

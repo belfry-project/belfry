@@ -10,7 +10,7 @@ UI_GIT_REPO ?= https://github.com/belfry-project/belfry-ui.git
 UI_GIT_BRANCH ?= main
 
 ## Product name to display on the UI used in UI build process
-PRODUCT ?= AWX
+PRODUCT ?= Belfry
 
 ## Required Node.js major version, shared with the image build and CI
 NODE_MAJOR := $(shell cat $(UI_DIR)/../../.nvmrc)

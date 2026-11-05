@@ -1,7 +1,7 @@
 {% extends 'rest_framework/base.html' %}
 {% load i18n static ansible_base.lib.templatetags.requests ansible_base.lib.templatetags.util %}
 
-{% block title %}{{ name }} &middot; {% trans 'AWX REST API' %}{% endblock %}
+{% block title %}{{ name }} &middot; {% trans 'Belfry REST API' %}{% endblock %}
 
 {% block bootstrap_theme %}
   {% is_proxied_request as proxied %}
