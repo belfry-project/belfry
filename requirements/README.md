@@ -59,8 +59,3 @@ Verify ansible-runner's build dependency doesn't conflict with the changes made.
 
 ### OPA-python-client
 OPA-python-client v2.0.3+ requires urllib3 v2.5.0+ but has other compatibility issues that need investigation.
-
-## djangorestframework
-Upgrading to 3.16.1 introduced errors on the tests around CredentialInputSource. We have several
-fields on that model set to default=null but in the serializer they're set to required: true which causes
-a conflict.
