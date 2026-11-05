@@ -73,4 +73,4 @@ To build the docs on your local machine, use the tox utility. In your forked bra
 Access the AWX user interface
 ------------------------------
 
-To access an instance of the AWX interface, refer to `Build and run the development environment <https://github.com/ansible/awx/blob/devel/CONTRIBUTING.md#setting-up-your-development-environment>`_ for detail. Once you have your environment setup, you can access the AWX UI by logging into it at `https://localhost:8043 <https://localhost:8043>`_, and access the API directly at `https://localhost:8043/api/ <https://localhost:8043/api/>`_.
+To access an instance of the AWX interface, refer to `Build and run the development environment <https://github.com/belfry-project/belfry/blob/main/CONTRIBUTING.md#setting-up-your-development-environment>`_ for detail. Once you have your environment setup, you can access the AWX UI by logging into it at `https://localhost:8043 <https://localhost:8043>`_, and access the API directly at `https://localhost:8043/api/ <https://localhost:8043/api/>`_.

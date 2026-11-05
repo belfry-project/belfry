@@ -3,7 +3,9 @@
 Communication
 =============
 
-We welcome your feedback, questions and ideas. Here's how to reach the community.
+We welcome your feedback, questions and ideas. For Belfry, open an issue or a pull request in the `belfry-project <https://github.com/belfry-project>`_ repositories on GitHub; vulnerabilities are reported privately, see the `security policy <https://github.com/belfry-project/.github/blob/main/SECURITY.md>`_.
+
+The channels below belong to the Ansible and AWX community, which Belfry is not part of.
 
 .. _code_of_conduct:
 

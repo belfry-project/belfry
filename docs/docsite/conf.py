@@ -8,8 +8,8 @@ from importlib import import_module
 
 sys.path.insert(0, os.path.abspath('./rst/rest_api/_swagger'))
 
-project = u'Ansible AWX'
-copyright = u'2026, Red Hat'
+project = u'Belfry'
+copyright = u'2026, Red Hat, Inc. and the Belfry contributors'
 author = u'Red Hat'
 
 pubdateshort = '2026-01-07'
@@ -18,11 +18,11 @@ pubdate = datetime.strptime(pubdateshort, '%Y-%m-%d').strftime('%B %d, %Y')
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
 # html_title = None
-html_title = 'Ansible AWX community documentation'
+html_title = 'Belfry documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 # html_short_title = None
-html_short_title = 'AWX community documentation'
+html_short_title = 'Belfry documentation'
 
 htmlhelp_basename = 'AWX_docs'
 
@@ -41,7 +41,8 @@ extensions = [
     'swagger',
 ]
 
-notfound_urls_prefix = "/projects/awx/en/latest/"
+# Published at https://belfry-project.github.io/docs/belfry/
+notfound_urls_prefix = "/docs/belfry/"
 notfound_template = "404.rst"
 
 html_theme = 'sphinx_ansible_theme'
@@ -56,7 +57,7 @@ master_doc = 'index'
 version = 'latest'
 shortversion = 'latest'
 # The full version, including alpha/beta/rc tags.
-release = 'AWX latest'
+release = 'Belfry (main)'
 
 language = 'en'
 
@@ -83,6 +84,16 @@ warnings.filterwarnings(
     category=UserWarning,
     module='sphinxcontrib.redoc',
 )
+
+# Shown at the top of every page
+rst_prolog = """
+.. note::
+
+   This is the documentation of `Belfry <https://belfry-project.github.io/docs/>`_, a community
+   continuation of AWX. It is based on the AWX documentation, and still uses the name AWX where
+   Belfry keeps AWX's names, such as the ``awx-manage`` command and the ``awx.awx`` collection.
+   For installing Belfry and migrating from AWX, see the `Belfry guides <https://belfry-project.github.io/docs/>`_.
+"""
 
 rst_epilog = """
 .. |atapi| replace:: *AWX API Guide*
