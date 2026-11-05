@@ -16,7 +16,7 @@
       "description": "Receptor image copied into the Belfry image",
       "managerFilePatterns": ["/^Makefile$/", "/^tools/.+/defaults/main\\.yml$/"],
       "matchStrings": [
-        "(?<depName>quay\\.io/ansible/receptor):(?<currentValue>v[0-9.]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+        "(?<depName>ghcr\\.io/belfry-project/receptor):(?<currentValue>v[0-9.]+-belfry\\.[0-9]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       "datasourceTemplate": "docker"
     }
@@ -32,6 +32,11 @@
       "description": "Upstream git dependencies move together; requirements.txt must be regenerated with requirements/updater.sh",
       "matchDatasources": ["git-refs"],
       "groupName": "upstream git dependencies"
+    },
+    {
+      "description": "Belfry's receptor rebuild is tagged <upstream version>-belfry.<n>",
+      "matchPackageNames": ["ghcr.io/belfry-project/receptor"],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-belfry\\.(?<build>\\d+)$"
     }
   ]
 }
