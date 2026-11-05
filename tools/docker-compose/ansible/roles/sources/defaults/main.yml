@@ -12,6 +12,9 @@ receptor_image: quay.io/ansible/receptor:v1.6.9@sha256:555994b7469304a7ea0d0eabe
 ingress_path: /
 api_urlpattern_prefix: ''
 
+# Execution environment image for jobs and the control plane. Empty uses the default from settings.
+ee_image: ''
+
 # Keys for signing work
 receptor_rsa_bits: 4096
 receptor_work_sign_reconfigure: false
