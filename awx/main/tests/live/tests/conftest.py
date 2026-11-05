@@ -156,8 +156,8 @@ def podman_image_generator():
     """
 
     def fn():
-        dockerfile = """
-        FROM quay.io/ansible/awx-ee:latest
+        dockerfile = f"""
+        FROM {settings.CONTROL_PLANE_EXECUTION_ENVIRONMENT}
         RUN echo "Hello, Podman!" > /tmp/hello.txt
         """
         cmd = ['podman', 'build', '-f', '-']  # Create an image without a tag
