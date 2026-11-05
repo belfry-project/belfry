@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       ee_image:
-        description: 'Execution environment image to test with (default: ghcr.io/belfry-project/belfry-ee:latest)'
+        description: 'Execution environment image to test with (default: ghcr.io/belfry-project/belfry-ee:main)'
         required: false
         default: ''
 jobs:
@@ -251,7 +251,7 @@ jobs:
         env:
           AWX_TEST_IMAGE: local/awx
           AWX_TEST_VERSION: ci
-          AWX_EE_TEST_IMAGE: ${{ inputs.ee_image || 'ghcr.io/belfry-project/belfry-ee:latest' }}
+          AWX_EE_TEST_IMAGE: ${{ inputs.ee_image || 'ghcr.io/belfry-project/belfry-ee:main' }}
           STORE_DEBUG_OUTPUT: true
 
       - name: Collect awx-operator logs on timeout

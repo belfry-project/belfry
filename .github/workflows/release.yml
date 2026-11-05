@@ -1,0 +1,259 @@
+---
+
+name: Release
+
+# Runs when a GitHub release is published (tag X.Y.Z or X.Y.Z-rc.N, no "v"):
+# builds the belfry image for linux/amd64 and linux/arm64 on native runners
+# with the release version, publishes ghcr.io/belfry-project/belfry:<version>
+# (and :latest for final releases) with provenance and SBOM attestations and a
+# Trivy scan, and attaches the awx.awx collection and awxkit to the release.
+#
+# Run it manually with dry_run (the default) to build everything from the
+# selected branch and publish only :release-test, without touching a release.
+#
+# The procedure for a whole Belfry release is in RELEASING.md in
+# belfry-project/.github.
+
+env:
+  LC_ALL: "C.UTF-8" # prevent ERROR: Ansible could not initialize the preferred locale: unsupported locale setting
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (X.Y.Z or X.Y.Z-rc.N). Without dry run, the release with this tag must exist.'
+        required: true
+        default: '0.0.0-rc.0'
+      dry_run:
+        description: 'Dry run: publish only :release-test and no release assets'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    if: github.repository == 'belfry-project/belfry'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      ref: ${{ steps.version.outputs.ref }}
+      dry_run: ${{ steps.version.outputs.dry_run }}
+      image_tag: ${{ steps.version.outputs.image_tag }}
+    steps:
+      - name: Determine the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "${EVENT}" = "release" ]; then
+            version="${RELEASE_TAG}"
+            dry_run=false
+            prerelease="${RELEASE_PRERELEASE}"
+          else
+            version="${INPUT_VERSION}"
+            dry_run="${INPUT_DRY_RUN}"
+            if [ "${dry_run}" != "true" ]; then
+              prerelease=$(gh release view "${version}" --json isPrerelease --jq .isPrerelease)
+            fi
+          fi
+          if ! [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "::error::Release tags are X.Y.Z or X.Y.Z-rc.N (no v prefix), got: ${version}"
+            exit 1
+          fi
+          if [ "${dry_run}" = "true" ]; then
+            ref="${GITHUB_SHA}"
+            image_tag=release-test
+          else
+            ref="refs/tags/${version}"
+            image_tag="${version}"
+            # Release candidates are pre-releases, final releases are not
+            if [[ "${version}" == *-rc.* ]] && [ "${prerelease}" != "true" ]; then
+              echo "::error::${version} is a release candidate; mark the GitHub release as a pre-release"
+              exit 1
+            fi
+            if [[ "${version}" != *-rc.* ]] && [ "${prerelease}" = "true" ]; then
+              echo "::error::${version} is a final release; it must not be a pre-release"
+              exit 1
+            fi
+          fi
+          {
+            echo "version=${version}"
+            echo "ref=${ref}"
+            echo "dry_run=${dry_run}"
+            echo "image_tag=${image_tag}"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    needs: setup
+    name: Build ${{ matrix.arch.platform }}
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        arch:
+          - {platform: linux/amd64, runner: ubuntu-latest, suffix: amd64}
+          - {platform: linux/arm64, runner: ubuntu-24.04-arm, suffix: arm64}
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      IMAGE: ghcr.io/${{ github.repository_owner }}/belfry
+      TAG: ${{ needs.setup.outputs.image_tag }}-${{ matrix.arch.suffix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.ref }}
+          show-progress: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Log in to registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Setup node and npm for the UI build
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Build the UI
+        run: |
+          make ui
+          echo "Built the UI from belfry-ui commit $(git -C awx/ui/src rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: ./.github/actions/setup-ssh-agent
+        with:
+          ssh-private-key: ${{ secrets.PRIVATE_GITHUB_KEY }}
+
+      # VERSION is passed to the build as SETUPTOOLS_SCM_PRETEND_VERSION, so the
+      # image reports the release version instead of one derived from git.
+      - name: Build and push the image
+        run: |
+          make awx-kube-buildx \
+            VERSION="${VERSION}" \
+            HEADLESS=no \
+            PLATFORMS=${{ matrix.arch.platform }} \
+            DEV_DOCKER_TAG_BASE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" \
+            GIT_REPO_NAME=belfry \
+            COMPOSE_TAG="${TAG}"
+
+      - name: Check the version in the image
+        run: |
+          # Python packages use the normalized form of the version, e.g. 1.0.0rc1 for 1.0.0-rc.1
+          python3 -m pip install -q packaging
+          expected=$(python3 -c 'import sys; from packaging.version import Version; print(Version(sys.argv[1]))' "${VERSION}")
+          actual=$(docker run --rm --pull always --entrypoint /var/lib/awx/venv/awx/bin/python "${IMAGE}:${TAG}" \
+            -c 'from awx import __version__; print(__version__)')
+          echo "Expected ${expected}, the image reports ${actual}"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "::error::The image reports version ${actual} instead of ${expected}"
+            exit 1
+          fi
+
+  publish:
+    needs: [setup, build]
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    uses: belfry-project/.github/.github/workflows/release-image.yml@main
+    with:
+      image: ghcr.io/belfry-project/belfry
+      version: ${{ needs.setup.outputs.version }}
+      dry_run: ${{ needs.setup.outputs.dry_run == 'true' }}
+      sources: >-
+        ghcr.io/belfry-project/belfry:${{ needs.setup.outputs.image_tag }}-amd64
+        ghcr.io/belfry-project/belfry:${{ needs.setup.outputs.image_tag }}-arm64
+
+  # The awx.awx collection and awxkit are published on the GitHub release
+  # instead of Ansible Galaxy and PyPI.
+  packages:
+    needs: setup
+    name: Collection and awxkit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.ref }}
+          show-progress: false
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Install build tools
+        run: |
+          python3 -m pip install -q ansible-core build
+
+      - name: Build the awx.awx collection
+        run: |
+          make build_collection \
+            COLLECTION_NAMESPACE=awx \
+            COLLECTION_VERSION="${VERSION}" \
+            COLLECTION_TEMPLATE_VERSION=true
+          mkdir -p dist-release
+          cp "awx_collection_build/awx-awx-${VERSION}.tar.gz" dist-release/
+
+      - name: Build awxkit
+        run: |
+          # awxkit/setup.py takes the version from this file instead of git
+          echo "${VERSION}" > awxkit/VERSION
+          python3 -m build --sdist --wheel --outdir dist-release awxkit
+          ls -l dist-release
+          (cd dist-release && sha256sum * > SHA256SUMS)
+          cat dist-release/SHA256SUMS
+
+      - name: Check the package versions
+        run: |
+          python3 -m pip install -q dist-release/awxkit-*.whl
+          python3 -c 'from importlib.metadata import version; print("awxkit", version("awxkit"))'
+          ansible-galaxy collection install -p /tmp/collections "dist-release/awx-awx-${VERSION}.tar.gz"
+          ansible-galaxy collection list -p /tmp/collections awx.awx
+
+      # Verify a download with: gh attestation verify <file> --owner belfry-project
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist-release/*.tar.gz
+            dist-release/*.whl
+
+      - name: Keep the packages as workflow artifacts (dry run)
+        if: needs.setup.outputs.dry_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: belfry-packages
+          path: dist-release/*
+
+      - name: Attach the packages to the GitHub release
+        if: needs.setup.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload "${VERSION}" --clobber dist-release/*
