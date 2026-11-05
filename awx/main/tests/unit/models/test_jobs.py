@@ -152,3 +152,103 @@ def test_finish_job_fact_cache_with_bad_data(hosts, mocker, tmpdir):
 
     # Invalid JSON should be skipped — no hosts updated, bulk_update never called
     bulk_update.assert_not_called()
+
+
+def _tagged_payload(facts):
+    return {'__payload__': json.dumps(facts)}
+
+
+def _write_future(filepath, data):
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(data, f)
+    future = time.time() + 3600
+    os.utime(filepath, (future, future))
+
+
+def test_start_job_fact_cache_writes_tagged_format(hosts, tmpdir):
+    artifacts_dir = tmpdir.mkdir("artifacts")
+
+    start_fact_cache(hosts, artifacts_dir=str(artifacts_dir), timeout=0, inventory_id=42)
+
+    # ansible-core 2.19 and later read "s1_<host>" with the facts in a JSON payload
+    fact_cache_dir = os.path.join(artifacts_dir, 'fact_cache')
+    for host in hosts:
+        with open(os.path.join(fact_cache_dir, 's1_' + host.name), 'r', encoding='utf-8') as f:
+            assert json.loads(json.load(f)['__payload__']) == host.ansible_facts
+
+
+def test_start_job_fact_cache_skips_tagged_file_that_collides_with_host(ref_time, tmpdir):
+    inventory = Inventory(id=5)
+    hosts = [
+        Host(name='web', ansible_facts={"host": "web"}, ansible_facts_modified=ref_time, inventory=inventory),
+        Host(name='s1_web', ansible_facts={"host": "s1_web"}, ansible_facts_modified=ref_time, inventory=inventory),
+    ]
+    artifacts_dir = tmpdir.mkdir("artifacts")
+
+    start_fact_cache(hosts, artifacts_dir=str(artifacts_dir), timeout=0, inventory_id=42)
+
+    # "s1_web" is the plain file of host s1_web, so web gets no tagged file
+    with open(os.path.join(artifacts_dir, 'fact_cache', 's1_web'), 'r', encoding='utf-8') as f:
+        assert json.load(f) == {"host": "s1_web"}
+
+
+def test_finish_job_fact_cache_reads_tagged_format(hosts, mocker, tmpdir):
+    artifacts_dir = str(tmpdir.mkdir("artifacts"))
+    start_fact_cache(hosts, artifacts_dir=artifacts_dir, timeout=0, inventory_id=5)
+    bulk_update = mocker.patch('awx.main.tasks.facts.bulk_update_sorted_by_id', return_value=1)
+
+    # Simulate ansible-core 2.19+ writing facts, with values wrapped in data tags
+    tagged_facts = {
+        "a": {"value": 3, "tags": [{"path": "/tmp/play.yml", "line_num": 1, "col_num": 1, "__ansible_type": "Origin"}], "__ansible_type": "_AnsibleTaggedInt"},
+        "c": {"value": {"d": [{"value": "x", "tags": [], "__ansible_type": "_AnsibleTaggedStr"}]}, "tags": [], "__ansible_type": "_AnsibleTaggedDict"},
+        "plain": "y",
+    }
+    _write_future(os.path.join(artifacts_dir, 'fact_cache', 's1_' + hosts[0].name), _tagged_payload(tagged_facts))
+
+    hosts_qs = mock.MagicMock()
+    hosts_qs.filter.return_value.select_related.return_value.iterator.return_value = [hosts[0]]
+
+    finish_fact_cache(hosts_qs, artifacts_dir=artifacts_dir, inventory_id=5)
+
+    assert hosts[0].ansible_facts == {"a": 3, "c": {"d": ["x"]}, "plain": "y"}
+    bulk_update.assert_called_once()
+    for host in hosts[1:]:
+        assert host.ansible_facts == {"a": 1, "b": 2}
+
+
+def test_finish_job_fact_cache_clear_tagged_format(hosts, mocker, ref_time, tmpdir):
+    artifacts_dir = str(tmpdir.mkdir("artifacts"))
+    start_fact_cache(hosts, artifacts_dir=artifacts_dir, timeout=0, inventory_id=5)
+    mocker.patch('awx.main.tasks.facts.bulk_update_sorted_by_id')
+
+    # ansible-core 2.19+ clears facts by removing only the file it uses
+    os.remove(os.path.join(artifacts_dir, 'fact_cache', 's1_' + hosts[1].name))
+
+    hosts_qs = mock.MagicMock()
+    hosts_qs.filter.return_value.select_related.return_value = [hosts[1]]
+
+    finish_fact_cache(hosts_qs, artifacts_dir=artifacts_dir, inventory_id=5)
+
+    assert hosts[1].ansible_facts == {}
+    assert hosts[1].ansible_facts_modified > ref_time
+    for host in (hosts[0], hosts[2], hosts[3]):
+        assert host.ansible_facts == {"a": 1, "b": 2}
+        assert host.ansible_facts_modified == ref_time
+
+
+def test_finish_job_fact_cache_with_bad_tagged_data(hosts, mocker, tmpdir):
+    artifacts_dir = str(tmpdir.mkdir("artifacts"))
+    start_fact_cache(hosts, artifacts_dir=artifacts_dir, timeout=0, inventory_id=5)
+    bulk_update = mocker.patch('awx.main.tasks.facts.bulk_update_sorted_by_id')
+
+    # A tagged file without a payload, and one whose payload is not JSON
+    fact_cache_dir = os.path.join(artifacts_dir, 'fact_cache')
+    _write_future(os.path.join(fact_cache_dir, 's1_' + hosts[0].name), {"not": "a payload"})
+    _write_future(os.path.join(fact_cache_dir, 's1_' + hosts[1].name), {"__payload__": "not json"})
+
+    hosts_qs = mock.MagicMock()
+    hosts_qs.filter.return_value.select_related.return_value.iterator.return_value = hosts[:2]
+
+    finish_fact_cache(hosts_qs, artifacts_dir=artifacts_dir, inventory_id=5)
+
+    bulk_update.assert_not_called()
