@@ -126,7 +126,10 @@ jobs:
           subject-digest: ${{ steps.digest.outputs.digest }}
           push-to-registry: true
 
+      # The development images are only for contributors, and their SBOMs exceed
+      # the 16 MB limit for attestations, so only the belfry image gets one.
       - name: Generate SBOM
+        if: matrix.image-suffix == ''
         uses: anchore/sbom-action@v0
         with:
           image: ${{ steps.tags.outputs.image }}@${{ steps.digest.outputs.digest }}
@@ -135,6 +138,7 @@ jobs:
           upload-artifact: false
 
       - name: Attest SBOM
+        if: matrix.image-suffix == ''
         uses: actions/attest-sbom@v4
         with:
           subject-name: ${{ steps.tags.outputs.image }}
