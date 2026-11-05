@@ -14,7 +14,7 @@ metadata:
   namespace: {{ minikube_service_account_namespace }}
 spec:
   containers:
-    - image: 'ghcr.io/belfry-project/belfry-ee:latest'
+    - image: 'ghcr.io/belfry-project/belfry-ee:main'
       name: worker
       args:
         - ansible-runner
