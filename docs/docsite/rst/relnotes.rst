@@ -5,7 +5,8 @@ Release Notes
 **************
 
 
-Refer to `AWX Release Notes <https://github.com/ansible/awx/releases>`_.
+Refer to the `Belfry release notes <https://github.com/belfry-project/belfry/releases>`_, and to `Belfry vs AWX <https://belfry-project.github.io/>`_ for the changes compared with the last AWX release.
+For the releases of AWX itself, see the `AWX release notes <https://github.com/ansible/awx/releases>`_.
 
 .. _ir_known_issues:
 

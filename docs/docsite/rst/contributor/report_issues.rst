@@ -4,7 +4,7 @@
 Reporting Issues
 ================
 
-To report issues you find in the AWX documentation, use the GitHub `issue tracker <https://github.com/ansible/awx/issues>`_ for filing bugs. In order to save time, and help us respond to issues quickly, make sure to fill out as much of the issue template
+To report issues you find in the Belfry documentation, use the GitHub `issue tracker <https://github.com/belfry-project/belfry/issues>`_ for filing bugs. In order to save time, and help us respond to issues quickly, make sure to fill out as much of the issue template
 as possible. Version information, and an accurate reproducing scenario are critical to helping us identify the problem.
 
 Be sure to attach the ``component:docs`` label to your issue. These labels are determined by the template data. Please use the template and fill it out as accurately as possible.
