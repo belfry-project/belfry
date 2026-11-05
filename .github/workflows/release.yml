@@ -20,6 +20,8 @@ env:
 on:
   release:
     types: [published]
+  push:
+    branches: [release-workflow]  # TEMPORARY for testing, remove before merging
   workflow_dispatch:
     inputs:
       version:
@@ -64,8 +66,9 @@ jobs:
             dry_run=false
             prerelease="${RELEASE_PRERELEASE}"
           else
-            version="${INPUT_VERSION}"
-            dry_run="${INPUT_DRY_RUN}"
+            # Manual run (or a push, while testing a branch): a dry run unless asked otherwise
+            version="${INPUT_VERSION:-0.0.0-rc.0}"
+            dry_run="${INPUT_DRY_RUN:-true}"
             if [ "${dry_run}" != "true" ]; then
               prerelease=$(gh release view "${version}" --json isPrerelease --jq .isPrerelease)
             fi
@@ -176,7 +179,7 @@ jobs:
       packages: write
       id-token: write
       attestations: write
-    uses: belfry-project/.github/.github/workflows/release-image.yml@main
+    uses: belfry-project/.github/.github/workflows/release-image.yml@release-procedure
     with:
       image: ghcr.io/belfry-project/belfry
       version: ${{ needs.setup.outputs.version }}
