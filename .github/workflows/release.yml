@@ -49,6 +49,7 @@ jobs:
       ref: ${{ steps.version.outputs.ref }}
       dry_run: ${{ steps.version.outputs.dry_run }}
       image_tag: ${{ steps.version.outputs.image_tag }}
+      py_version: ${{ steps.version.outputs.py_version }}
     steps:
       - name: Determine the version
         id: version
@@ -93,8 +94,11 @@ jobs:
               exit 1
             fi
           fi
+          # Python packages use the normalized (PEP 440) form: 1.0.0-rc.1 -> 1.0.0rc1
+          py_version="${version/-rc./rc}"
           {
             echo "version=${version}"
+            echo "py_version=${py_version}"
             echo "ref=${ref}"
             echo "dry_run=${dry_run}"
             echo "image_tag=${image_tag}"
@@ -115,7 +119,8 @@ jobs:
           - {platform: linux/amd64, runner: ubuntu-latest, suffix: amd64}
           - {platform: linux/arm64, runner: ubuntu-24.04-arm, suffix: arm64}
     env:
-      VERSION: ${{ needs.setup.outputs.version }}
+      # The Python version: the sdist is named after it and the API reports it
+      VERSION: ${{ needs.setup.outputs.py_version }}
       IMAGE: ghcr.io/${{ github.repository_owner }}/belfry
       TAG: ${{ needs.setup.outputs.image_tag }}-${{ matrix.arch.suffix }}
     steps:
@@ -161,9 +166,7 @@ jobs:
 
       - name: Check the version in the image
         run: |
-          # Python packages use the normalized form of the version, e.g. 1.0.0rc1 for 1.0.0-rc.1
-          python3 -m pip install -q packaging
-          expected=$(python3 -c 'import sys; from packaging.version import Version; print(Version(sys.argv[1]))' "${VERSION}")
+          expected="${VERSION}"
           actual=$(docker run --rm --pull always --entrypoint /var/lib/awx/venv/awx/bin/python "${IMAGE}:${TAG}" \
             -c 'from awx import __version__; print(__version__)')
           echo "Expected ${expected}, the image reports ${actual}"
