@@ -1,51 +1,39 @@
-[![CI](https://github.com/ansible/awx/actions/workflows/ci.yml/badge.svg?branch=devel)](https://github.com/ansible/awx/actions/workflows/ci.yml) [![codecov](https://codecov.io/github/ansible/awx/graph/badge.svg?token=4L4GSP9IAR)](https://codecov.io/github/ansible/awx) [![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Ansible-yellow.svg)](https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html) [![Apache v2 License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/ansible/awx/blob/devel/LICENSE.md) [![AWX on the Ansible Forum](https://img.shields.io/badge/mailing%20list-AWX-orange.svg)](https://forum.ansible.com/tag/awx)
-[![Ansible Matrix](https://img.shields.io/badge/matrix-Ansible%20Community-blueviolet.svg?logo=matrix)](https://chat.ansible.im/#/welcome) [![Ansible Discourse](https://img.shields.io/badge/discourse-Ansible%20Community-yellowgreen.svg?logo=discourse)](https://forum.ansible.com)
+[![CI](https://github.com/belfry-project/belfry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/belfry-project/belfry/actions/workflows/ci.yml) [![Apache v2 License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](./LICENSE.md)
 
-<img src="https://raw.githubusercontent.com/ansible/awx-logos/master/awx/ui/client/assets/logo-login.svg?sanitize=true" width=200 alt="AWX" />
+<img src="./awx/static/belfry-icon.svg" width=120 alt="Belfry" />
 
-> [!CAUTION]
-> The last release of this repository was released on Jul 2, 2024.
-> **Releases of this project are now paused during a large scale refactoring.**
-> For more information, follow [the Forum](https://forum.ansible.com/) and - more specifically - see the various communications on the matter:
->
-> * [Blog: Upcoming Changes to the AWX Project](https://www.ansible.com/blog/upcoming-changes-to-the-awx-project/)
-> * [Streamlining AWX Releases](https://forum.ansible.com/t/streamlining-awx-releases/6894) Primary update
-> * [Refactoring AWX into a Pluggable, Service-Oriented Architecture](https://forum.ansible.com/t/refactoring-awx-into-a-pluggable-service-oriented-architecture/7404)
-> * [Upcoming changes to AWX Operator installation methods](https://forum.ansible.com/t/upcoming-changes-to-awx-operator-installation-methods/7598)
-> * [AWX UI and credential types transitioning to the new pluggable architecture](https://forum.ansible.com/t/awx-ui-and-credential-types-transitioning-to-the-new-pluggable-architecture/8027)
+# Belfry
 
-AWX provides a web-based user interface, REST API, and task engine built on top of [Ansible](https://github.com/ansible/ansible). It is one of the upstream projects for [Red Hat Ansible Automation Platform](https://www.ansible.com/products/automation-platform).
+Belfry provides a web-based user interface, REST API, and task engine built on top of [Ansible](https://github.com/ansible/ansible). It is a community continuation of [AWX](https://github.com/ansible/awx), whose releases are paused upstream, with maintained dependencies, security fixes and published images.
 
-To install AWX, please view the [Install guide](./INSTALL.md).
+- Website and documentation: https://belfry-project.github.io/
+- Install on Kubernetes with [belfry-operator](https://github.com/belfry-project/belfry-operator) or the [Helm chart](https://github.com/belfry-project/helm-charts).
+- Container images: `ghcr.io/belfry-project/belfry`, execution environment `ghcr.io/belfry-project/belfry-ee`.
+- The web UI is built from [belfry-ui](https://github.com/belfry-project/belfry-ui).
 
-To learn more about using AWX, view the [AWX docs site](https://docs.ansible.com/projects/awx/en/latest/).
+Belfry keeps AWX's internal names so existing installations, playbooks and scripts keep working: the Python package and CLI are still called `awx`, the API lives under `/api/v2/`, the Ansible collection is `awx.awx`, and the Kubernetes resources use the `awx.ansible.com` API group. The [comparison page](https://belfry-project.github.io/) lists what changed compared to AWX.
 
-The AWX Project Frequently Asked Questions can be found [here](https://www.ansible.com/awx-project-faq).
+Credits
+-------
 
-The AWX logos and branding assets are covered by [our trademark guidelines](https://github.com/ansible/awx-logos/blob/master/TRADEMARKS.md).
+Belfry is based on the work of the [AWX project](https://github.com/ansible/awx) and its contributors, including [AWX Operator](https://github.com/ansible/awx-operator), [AWX EE](https://github.com/ansible/awx-ee) and [Ansible UI](https://github.com/ansible/ansible-ui). The full upstream history is kept in this repository. Belfry is not affiliated with or endorsed by Red Hat, Inc.
+
+AWX and Ansible are trademarks of Red Hat, Inc. Belfry does not use the AWX logos; see the [AWX trademark guidelines](https://github.com/ansible/awx-logos/blob/master/TRADEMARKS.md).
 
 Contributing
 ------------
 
-- Refer to the [Contributing guide](./CONTRIBUTING.md) to get started developing, testing, and building AWX.
-- All code submissions are made through pull requests against the `devel` branch.
-- All contributors must use `git commit --signoff` for any commit to be merged and agree that usage of `--signoff` constitutes agreement with the terms of [DCO 1.1](./DCO_1_1.md)
+- Refer to the [Contributing guide](./CONTRIBUTING.md) to get started developing, testing, and building Belfry.
+- All code submissions are made through pull requests against the `main` branch.
+- All contributors must use `git commit --signoff` for any commit to be merged and agree that usage of `--signoff` constitutes agreement with the terms of [DCO 1.1](./DCO_1_1.md).
 - Take care to make sure no merge commits are in the submission, and use `git rebase` vs. `git merge` for this reason.
-- If submitting a large code change, it's a good idea to join discuss via the [Ansible Forum](https://forum.ansible.com/tag/awx). This helps everyone know what's going on, and it also helps save time and effort if the community decides some changes are needed.
 
 Reporting Issues
 ----------------
 
-If you're experiencing a problem that you feel is a bug in AWX or have ideas for improving AWX, we encourage you to open an issue and share your feedback. But before opening a new issue, we ask that you please take a look at our [Issues guide](./ISSUES.md).
+If you're experiencing a problem that you feel is a bug in Belfry or have ideas for improving it, please open an [issue](https://github.com/belfry-project/belfry/issues). Before opening a new issue, take a look at the [Issues guide](./ISSUES.md). Report security problems as described in the [security policy](https://github.com/belfry-project/.github/blob/main/SECURITY.md).
 
-Code of Conduct
----------------
+License
+-------
 
-We require all of our community members and contributors to adhere to the [Ansible code of conduct](https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html). If you have questions or need assistance, please reach out to our community team at [codeofconduct@ansible.com](mailto:codeofconduct@ansible.com)
-
-Get Involved
-------------
-
-We welcome your feedback and ideas via the [Ansible Forum](https://forum.ansible.com/tag/awx).
-
-For a full list of all the ways to talk with the Ansible Community, see the [AWX Communication guide](https://docs.ansible.com/projects/awx/en/latest/contributor/communication.html).
+Belfry is licensed under the [Apache License 2.0](./LICENSE.md), like AWX.
