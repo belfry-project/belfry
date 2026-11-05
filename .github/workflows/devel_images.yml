@@ -14,7 +14,9 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.repository == 'belfry-project/belfry' && (github.ref_name == 'main' || startsWith(github.ref_name, 'feature_')))
-    runs-on: ubuntu-latest
+    # Each architecture is built on a native runner and pushed as <tag>-<arch>.
+    # The merge job below combines them into the multi-arch <tag>.
+    runs-on: ${{ matrix.arch.runner }}
     timeout-minutes: 120
     permissions:
       packages: write
@@ -22,6 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        arch:
+          - {platform: linux/amd64, runner: ubuntu-latest, suffix: amd64}
+          - {platform: linux/arm64, runner: ubuntu-24.04-arm, suffix: arm64}
         build-targets:
           - image-name: awx_devel
             make-target: docker-compose-buildx
@@ -35,16 +40,14 @@ jobs:
         with:
           show-progress: false
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Set GITHUB_ENV variables
         run: |
           echo "DEV_DOCKER_TAG_BASE=ghcr.io/${OWNER,,}" >> $GITHUB_ENV
-          echo "COMPOSE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          echo "COMPOSE_TAG=${GITHUB_REF##*/}-${{ matrix.arch.suffix }}" >> $GITHUB_ENV
+          echo "PLATFORMS=${{ matrix.arch.platform }}" >> $GITHUB_ENV
         env:
           OWNER: '${{ github.repository_owner }}'
 
@@ -72,3 +75,33 @@ jobs:
       - name: Build and push AWX devel images
         run: |
           make ${{ matrix.build-targets.make-target }}
+
+  merge-development-images:
+    needs: push-development-images
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image-suffix: ['', '_devel', '_kube_devel']
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Create and push the multi-arch image
+        env:
+          OWNER: '${{ github.repository_owner }}'
+          REPO: '${{ github.event.repository.name }}'
+        run: |
+          image="ghcr.io/${OWNER,,}/${REPO}${{ matrix.image-suffix }}"
+          tag="${GITHUB_REF##*/}"
+          docker buildx imagetools create \
+            --tag "${image}:${tag}" \
+            --annotation="index:org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            "${image}:${tag}-amd64" "${image}:${tag}-arm64"
+          docker buildx imagetools inspect "${image}:${tag}"
