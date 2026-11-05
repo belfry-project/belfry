@@ -23,7 +23,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password as django_validate_password
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError as DjangoValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.utils.encoding import force_str
@@ -723,6 +723,28 @@ class BaseSerializer(serializers.ModelSerializer, metaclass=BaseSerializerMetacl
     def get_unique_together_validators(self):
         # Allow the model's full_clean method to handle the unique together validation.
         return []
+
+    def get_uniqueness_extra_kwargs(self, field_names, declared_fields, extra_kwargs):
+        # DRF 3.16+ (encode/django-rest-framework#9531) no longer makes a nullable or blank text field
+        # of a unique_together required, but gives it a default of None or '' instead. Keep the DRF 3.15
+        # behavior: AWX relies on it, e.g. to require an organization for inventories.
+        explicit_defaults = {name for name, kwargs in extra_kwargs.items() if 'default' in kwargs}
+        extra_kwargs, hidden_fields = super().get_uniqueness_extra_kwargs(field_names, declared_fields, extra_kwargs)
+        opts = self.Meta.model._meta
+
+        def has_drf_316_default(name):
+            try:
+                model_field = opts.get_field(name)
+            except FieldDoesNotExist:
+                return False
+            return not (model_field.has_default() or getattr(model_field, 'auto_now', False) or getattr(model_field, 'auto_now_add', False))
+
+        for name, kwargs in extra_kwargs.items():
+            if 'default' in kwargs and name not in explicit_defaults and has_drf_316_default(name):
+                del kwargs['default']
+                kwargs.setdefault('required', True)
+        hidden_fields = {name: field for name, field in hidden_fields.items() if not has_drf_316_default(name)}
+        return extra_kwargs, hidden_fields
 
     def run_validation(self, data=fields.empty):
         try:
