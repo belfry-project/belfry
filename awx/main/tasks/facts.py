@@ -19,6 +19,44 @@ from awx.main.models import Host
 logger = logging.getLogger('awx.main.tasks.facts')
 system_tracking_logger = logging.getLogger('awx.analytics.system_tracking')
 
+# ansible-core 2.19 changed the jsonfile fact cache format. Older versions store
+# each host's facts as plain JSON in a file named after the host. Newer versions
+# use a file named "s1_<host>" holding {"__payload__": "<facts as JSON>"}, where
+# values may be wrapped with data tags. The ansible-core version inside the
+# execution environment is not known here, so both formats are written and read.
+TAGGED_CACHE_PREFIX = 's1_'
+TAGGED_CACHE_PAYLOAD_KEY = '__payload__'
+
+
+def _fact_cache_files(fact_cache_dir, hostname, hostnames):
+    """Return (path, tagged) for each cache file that may hold facts for a host.
+
+    The tagged file is left out when its name is also another host's plain file.
+    """
+    files = [(os.path.join(fact_cache_dir, hostname), False)]
+    if TAGGED_CACHE_PREFIX + hostname not in hostnames:
+        files.append((os.path.join(fact_cache_dir, TAGGED_CACHE_PREFIX + hostname), True))
+    return files
+
+
+def _strip_data_tags(value):
+    """Replace ansible-core data tag wrappers with the plain values they hold."""
+    if isinstance(value, dict):
+        if '__ansible_type' in value and 'value' in value:
+            return _strip_data_tags(value['value'])
+        return {k: _strip_data_tags(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_strip_data_tags(v) for v in value]
+    return value
+
+
+def _read_fact_file(filepath, tagged):
+    with codecs.open(filepath, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    if tagged:
+        data = _strip_data_tags(json.loads(data[TAGGED_CACHE_PAYLOAD_KEY]))
+    return data
+
 
 @log_excess_runtime(logger, debug_cutoff=0.01, msg='Inventory {inventory_id} host facts prepared for {written_ct} hosts, took {delta:.3f} s', add_log_data=True)
 def start_fact_cache(hosts, artifacts_dir, timeout=None, inventory_id=None, log_data=None):
@@ -37,30 +75,35 @@ def start_fact_cache(hosts, artifacts_dir, timeout=None, inventory_id=None, log_
 
     last_write_time = None
 
+    hosts = list(hosts)
+    hostnames = {host.name for host in hosts}
+
     for host in hosts:
         if not host.ansible_facts_modified or (timeout and host.ansible_facts_modified < now() - datetime.timedelta(seconds=timeout)):
             hosts_cached[host.name] = False
             continue  # facts are expired - do not write them
 
-        filepath = os.path.join(fact_cache_dir, host.name)
-        if not os.path.realpath(filepath).startswith(fact_cache_dir):
+        files = _fact_cache_files(fact_cache_dir, host.name, hostnames)
+        if not all(os.path.realpath(filepath).startswith(fact_cache_dir) for filepath, _ in files):
             logger.error(f'facts for host {smart_str(host.name)} could not be cached')
             hosts_cached[host.name] = False
             continue
 
         try:
-            with codecs.open(filepath, 'w', encoding='utf-8') as f:
-                os.chmod(f.name, 0o600)
-                json.dump(host.ansible_facts, f)
-                log_data['written_ct'] += 1
-            # Backdate the file by 2 seconds so finish_fact_cache can reliably
-            # distinguish these reference files from files updated by ansible.
-            # This guarantees fact file mtime < summary file mtime even with
-            # zipfile's 2-second timestamp rounding during artifact transfer.
-            mtime = os.path.getmtime(filepath)
-            backdated = mtime - 2
-            os.utime(filepath, (backdated, backdated))
-            last_write_time = backdated
+            for filepath, tagged in files:
+                data = {TAGGED_CACHE_PAYLOAD_KEY: json.dumps(host.ansible_facts)} if tagged else host.ansible_facts
+                with codecs.open(filepath, 'w', encoding='utf-8') as f:
+                    os.chmod(f.name, 0o600)
+                    json.dump(data, f)
+                # Backdate the file by 2 seconds so finish_fact_cache can reliably
+                # distinguish these reference files from files updated by ansible.
+                # This guarantees fact file mtime < summary file mtime even with
+                # zipfile's 2-second timestamp rounding during artifact transfer.
+                mtime = os.path.getmtime(filepath)
+                backdated = mtime - 2
+                os.utime(filepath, (backdated, backdated))
+                last_write_time = backdated
+            log_data['written_ct'] += 1
             hosts_cached[host.name] = True
         except IOError:
             logger.error(f'facts for host {smart_str(host.name)} could not be cached')
@@ -108,38 +151,32 @@ def finish_fact_cache(host_qs, artifacts_dir, job_id=None, inventory_id=None, jo
     fact_cache_dir = os.path.join(artifacts_dir, 'fact_cache')
 
     # Phase 1: Scan files on disk to discover which hosts have updated or missing facts
-    hosts_with_updates = set()  # hostnames whose fact file was modified by Ansible
-    hosts_to_clear = []  # hostnames where Ansible removed the fact file
-    seen_in_dir = set()  # hostnames we found as files on disk
+    hosts_with_updates = {}  # hostname -> (path, tagged) of the fact file Ansible modified
+    hosts_to_clear = []  # hostnames where Ansible removed a fact file we wrote
 
-    if os.path.isdir(fact_cache_dir):
-        for filename in os.listdir(fact_cache_dir):
-            if filename not in hosts_cached_map:
-                continue  # not an expected host for this job
-
-            filepath = os.path.join(fact_cache_dir, filename)
+    for hostname, was_written in hosts_cached_map.items():
+        updated = None
+        missing = False
+        for filepath, tagged in _fact_cache_files(fact_cache_dir, hostname, hosts_cached_map):
             if os.path.islink(filepath):
                 logger.error(f'Invalid path for facts file: {filepath}')
+                missing = True
                 continue
             if not os.path.isfile(filepath):
+                missing = True
                 continue
-
-            seen_in_dir.add(filename)
             try:
                 modified = os.path.getmtime(filepath)
             except OSError as e:
                 logger.warning(f'Could not stat facts file {filepath}: {e}')
                 continue
-            if modified >= facts_write_time:
-                hosts_with_updates.add(filename)
-            else:
-                log_data['unmodified_ct'] += 1
+            if modified >= facts_write_time and (updated is None or tagged):
+                updated = (filepath, tagged)
 
-    # Check for files we wrote pre-job that are now missing (Ansible cleared facts)
-    for hostname, was_written in hosts_cached_map.items():
-        if hostname in seen_in_dir:
-            continue  # already handled above
-        if was_written:
+        if updated:
+            hosts_with_updates[hostname] = updated
+        elif missing and was_written:
+            # Ansible removes the file of the cache format it uses when facts are cleared
             hosts_to_clear.append(hostname)
         else:
             log_data['unmodified_ct'] += 1
@@ -149,11 +186,10 @@ def finish_fact_cache(host_qs, artifacts_dir, job_id=None, inventory_id=None, jo
         hosts_to_save = []
         total_rows_updated = 0
         for host in host_qs.filter(name__in=list(hosts_with_updates)).select_related('inventory').iterator():
-            filepath = os.path.join(fact_cache_dir, host.name)
+            filepath, tagged = hosts_with_updates[host.name]
             try:
-                with codecs.open(filepath, 'r', encoding='utf-8') as f:
-                    new_facts = json.load(f)
-            except (ValueError, OSError):
+                new_facts = _read_fact_file(filepath, tagged)
+            except (ValueError, OSError, KeyError, TypeError):
                 continue
 
             if new_facts != host.ansible_facts:
