@@ -73,7 +73,7 @@ IMAGE_KUBE=$(DEV_DOCKER_TAG_BASE)/$(GIT_REPO_NAME):$(COMPOSE_TAG)
 # Common command to use for running ansible-playbook
 ANSIBLE_PLAYBOOK ?= ansible-playbook -e ansible_python_interpreter=$(PYTHON)
 
-RECEPTOR_IMAGE ?= quay.io/ansible/receptor:v1.6.9@sha256:555994b7469304a7ea0d0eabe1841e374090047cf7f4c43af0c653e1405431c4
+RECEPTOR_IMAGE ?= ghcr.io/belfry-project/receptor:v1.6.9-belfry.1@sha256:da242ce78920b2fb16af19499175f4f73aff75979b8983314da3aff5cffdb9ed
 
 # Python packages to install only from source (not from binary wheels)
 # Comma separated list

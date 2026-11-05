@@ -9,7 +9,7 @@ template_dest: '_build'
 # Node.js major version for the UI build, shared with the CI workflows through .nvmrc
 nodejs_version: "{{ lookup('ansible.builtin.file', role_path + '/../../../../.nvmrc') | trim }}"
 
-receptor_image: quay.io/ansible/receptor:v1.6.9@sha256:555994b7469304a7ea0d0eabe1841e374090047cf7f4c43af0c653e1405431c4
+receptor_image: ghcr.io/belfry-project/receptor:v1.6.9-belfry.1@sha256:da242ce78920b2fb16af19499175f4f73aff75979b8983314da3aff5cffdb9ed
 
 # Helper vars to construct the proper download URL for the current architecture
 image_architecture: '{{ { "x86_64": "amd64", "aarch64": "arm64", "armv7": "arm", "arm64": "arm64", "ppc64le": "ppc64le" }[ansible_facts.architecture] }}'
