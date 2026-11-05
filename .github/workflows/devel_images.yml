@@ -82,6 +82,8 @@ jobs:
     permissions:
       packages: write
       contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -94,14 +96,48 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Create and push the multi-arch image
+        id: tags
         env:
           OWNER: '${{ github.repository_owner }}'
           REPO: '${{ github.event.repository.name }}'
         run: |
           image="ghcr.io/${OWNER,,}/${REPO}${{ matrix.image-suffix }}"
           tag="${GITHUB_REF##*/}"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           docker buildx imagetools create \
             --tag "${image}:${tag}" \
             --annotation="index:org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             "${image}:${tag}-amd64" "${image}:${tag}-arm64"
           docker buildx imagetools inspect "${image}:${tag}"
+
+      - name: Get the image digest
+        id: digest
+        run: |
+          digest=$(docker buildx imagetools inspect "${{ steps.tags.outputs.image }}:${{ steps.tags.outputs.tag }}" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      # Signed statement of which repository, commit and workflow built the image.
+      # Verify with: gh attestation verify oci://<image> --owner belfry-project
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ steps.tags.outputs.image }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.tags.outputs.image }}@${{ steps.digest.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-name: ${{ steps.tags.outputs.image }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
