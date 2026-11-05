@@ -181,17 +181,33 @@ CUSTOM_VENV_PATHS = []
 # This should not be set via a file.
 DEFAULT_EXECUTION_ENVIRONMENT = None
 
+
+def _belfry_ee_image():
+    """The belfry-ee image that belongs to this build.
+
+    A release (Python version X.Y.Z or X.Y.ZrcN) uses the EE released with the same tag,
+    so released installations never run unreleased EE builds; any other build uses belfry-ee:main.
+    """
+    from awx import __version__
+
+    match = re.fullmatch(r'(\d+\.\d+\.\d+)(?:rc(\d+))?', __version__)
+    if not match:
+        return 'ghcr.io/belfry-project/belfry-ee:main'
+    tag = match.group(1) + (f'-rc.{match.group(2)}' if match.group(2) else '')
+    return f'ghcr.io/belfry-project/belfry-ee:{tag}'
+
+
 # This list is used for creating default EEs when running awx-manage create_preload_data.
 # Should be ordered from highest to lowest precedence.
 # The awx-manage register_default_execution_environments command reads this setting and registers the EE(s)
 # If a registry credential is needed to pull the image, that can be provided to the awx-manage command
-GLOBAL_JOB_EXECUTION_ENVIRONMENTS = [{'name': 'AWX EE (latest)', 'image': 'ghcr.io/belfry-project/belfry-ee:main'}]
+GLOBAL_JOB_EXECUTION_ENVIRONMENTS = [{'name': 'AWX EE (latest)', 'image': _belfry_ee_image()}]
 # This setting controls which EE will be used for project updates.
 # The awx-manage register_default_execution_environments command reads this setting and registers the EE
 # This image is distinguished from others by having "managed" set to True and users have limited
 # ability to modify it through the API.
 # If a registry credential is needed to pull the image, that can be provided to the awx-manage command
-CONTROL_PLANE_EXECUTION_ENVIRONMENT = 'ghcr.io/belfry-project/belfry-ee:main'
+CONTROL_PLANE_EXECUTION_ENVIRONMENT = _belfry_ee_image()
 
 # Note: This setting may be overridden by database settings.
 STDOUT_MAX_BYTES_DISPLAY = 1048576
