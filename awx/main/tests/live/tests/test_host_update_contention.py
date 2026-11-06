@@ -7,6 +7,9 @@ from django.utils.timezone import now
 from awx.main.models import Inventory, Host
 from awx.main.utils.db import bulk_update_sorted_by_id
 
+# The subprocesses share the test's state by being forked; Python 3.14 defaults to forkserver
+mp = multiprocessing.get_context('fork')
+
 
 def worker_delete_target(ready_event, continue_event, field_name):
     """Runs the bulk update, will be called in duplicate, in parallel"""
@@ -47,14 +50,14 @@ def test_host_update_contention(default_org):
     # Force our worker pool to make their own connection
     connection.close()
 
-    ready_events = [multiprocessing.Event() for _ in range(2)]
-    continue_event = multiprocessing.Event()
+    ready_events = [mp.Event() for _ in range(2)]
+    continue_event = mp.Event()
 
     print('spawning processes for concurrent bulk updates')
     processes = []
     fields = ['variables', 'ansible_facts']
     for i in range(2):
-        p = multiprocessing.Process(target=worker_delete_target, args=(ready_events[i], continue_event, fields[i]))
+        p = mp.Process(target=worker_delete_target, args=(ready_events[i], continue_event, fields[i]))
         processes.append(p)
         p.start()
 
