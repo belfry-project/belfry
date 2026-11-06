@@ -6,9 +6,12 @@
 
 {% if not headless|bool %}
 # UI_next build contaienr
-FROM quay.io/centos/centos:stream9 AS ui-builder
+FROM quay.io/centos/centos:stream10 AS ui-builder
 USER root
-RUN dnf -y update && dnf module -y enable nodejs:{{ nodejs_version }} && dnf module -y install nodejs:{{ nodejs_version }}/common && dnf install -y make git
+# Stream 10 has no module streams: Node.js versions are separate packages
+# (nodejs24, nodejs24-npm) whose commands carry the version (node-24, npm-24)
+RUN dnf -y update && dnf install -y nodejs{{ nodejs_version }} nodejs{{ nodejs_version }}-npm make git && \
+    for cmd in node npm npx; do ln -sf /usr/bin/$cmd-{{ nodejs_version }} /usr/bin/$cmd; done
 
 COPY . /tmp/src/
 WORKDIR /tmp/src/
@@ -16,7 +19,7 @@ RUN make ui
 {% endif %}
 
 # Build container
-FROM quay.io/centos/centos:stream9 AS builder
+FROM quay.io/centos/centos:stream10 AS builder
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
@@ -46,13 +49,13 @@ RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
     nss \
     patch \
     postgresql \
-    postgresql-devel \
-    python3.12 \
-    "python3.12-devel" \
-    "python3.12-pip" \
-    "python3.12-setuptools" \
-    "python3.12-packaging" \
-    "python3.12-psycopg2" \
+    libpq-devel \
+    python3.14 \
+    "python3.14-devel" \
+    "python3.14-pip" \
+    "python3.14-setuptools" \
+    "python3.14-packaging" \
+    "python3.14-psycopg2" \
     swig \
     unzip \
     xmlsec1-devel \
@@ -62,7 +65,7 @@ RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
 RUN mkdir -p ~/.ssh && chmod 0700 ~/.ssh
 RUN ssh-keyscan github.com > ~/.ssh/known_hosts
 
-RUN pip3.12 install -vv build
+RUN pip3.14 install -vv build
 
 {% if image_architecture == 'ppc64le'  %}
     RUN dnf -y update && dnf install -y wget && \
@@ -112,7 +115,7 @@ RUN AWX_MODE=defaults \
 
 
 # Final container(s)
-FROM quay.io/centos/centos:stream9
+FROM quay.io/centos/centos:stream10
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
@@ -124,8 +127,6 @@ USER root
 # Import the gpg key for DNF to work
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
 
-ADD https://copr.fedorainfracloud.org/coprs/ansible/Rsyslog/repo/epel-9/ansible-Rsyslog-epel-9.repo /etc/yum.repos.d/ansible-Rsyslog-epel-9.repo
-
 # Install runtime requirements
 RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
     dnf config-manager --set-enabled crb && \
@@ -136,12 +137,12 @@ RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
     krb5-workstation \
     nginx \
     postgresql \
-    python3.12 \
-    "python3.12-devel" \
-    "python3.12-pip*" \
-    "python3.12-setuptools" \
-    "python3.12-packaging" \
-    "python3.12-psycopg2" \
+    python3.14 \
+    "python3.14-devel" \
+    "python3.14-pip*" \
+    "python3.14-setuptools" \
+    "python3.14-packaging" \
+    "python3.14-psycopg2" \
     rsync \
     rsyslog \
     subversion \
@@ -152,13 +153,14 @@ RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
     xmlsec1-openssl && \
     dnf -y clean all
 
-RUN pip3.12 install -vv virtualenv supervisor dumb-init build
+RUN pip3.14 install -vv virtualenv supervisor dumb-init build
 
 RUN rm -rf /root/.cache && rm -rf /tmp/*
 
 {% if (build_dev|bool) or (kube_dev|bool) %}
 # Install development/test requirements
-RUN dnf module -y enable nodejs:{{ nodejs_version }} && dnf module -y install nodejs:{{ nodejs_version }}/common && \
+RUN dnf -y install nodejs{{ nodejs_version }} nodejs{{ nodejs_version }}-npm && \
+    for cmd in node npm npx; do ln -sf /usr/bin/$cmd-{{ nodejs_version }} /usr/bin/$cmd; done && \
     dnf -y install \
     crun \
     gdb \
@@ -168,7 +170,6 @@ RUN dnf module -y enable nodejs:{{ nodejs_version }} && dnf module -y install no
     procps \
     alsa-lib \
     libX11-xcb \
-    libXScrnSaver \
     iproute \
     strace \
     vim \
@@ -183,15 +184,15 @@ RUN dnf module -y enable nodejs:{{ nodejs_version }} && dnf module -y install no
     diffutils \
     unzip
 
-RUN pip3.12 install -vv git+https://github.com/coderanger/supervisor-stdout.git@973ba19967cdaf46d9c1634d1675fc65b9574f6e
-RUN pip3.12 install -vv 'ruff~=0.16.0' setuptools-scm build
+RUN pip3.14 install -vv git+https://github.com/coderanger/supervisor-stdout.git@973ba19967cdaf46d9c1634d1675fc65b9574f6e
+RUN pip3.14 install -vv 'ruff~=0.16.0' setuptools-scm build
 
 # This package randomly fails to download.
 # It is nice to have in the dev env, but not necessary.
 # Add it back to the list above if the repo ever straighten up.
-RUN dnf --enablerepo=baseos-debug -y install python3-debuginfo || :
+RUN dnf --enablerepo=baseos-debug -y install python3.14-debuginfo || :
 
-RUN dnf install -y epel-next-release && dnf install -y inotify-tools && dnf remove -y epel-next-release
+RUN dnf install -y epel-release && dnf install -y inotify-tools && dnf remove -y epel-release
 {% endif %}
 
 # Copy app from builder
@@ -253,8 +254,8 @@ ADD tools/scripts/awx-python /usr/bin/awx-python
 {% endif %}
 
 {% if (build_dev|bool) or (kube_dev|bool) %}
-RUN echo /awx_devel > /var/lib/awx/venv/awx/lib/python3.12/site-packages/awx.egg-link
-RUN echo /awx_devel > /var/lib/awx/venv/awx/lib/python3.12/site-packages/awx.pth
+RUN echo /awx_devel > /var/lib/awx/venv/awx/lib/python3.14/site-packages/awx.egg-link
+RUN echo /awx_devel > /var/lib/awx/venv/awx/lib/python3.14/site-packages/awx.pth
 RUN ln -sf /awx_devel/tools/docker-compose/awx-manage /usr/local/bin/awx-manage
 RUN ln -sf /awx_devel/tools/scripts/awx-python /usr/bin/awx-python
 RUN ln -sf /awx_devel/tools/scripts/rsyslog-4xx-recovery /usr/bin/rsyslog-4xx-recovery
@@ -286,8 +287,8 @@ RUN for dir in \
       /var/lib/awx/.local \
       /var/lib/awx/venv \
       /var/lib/awx/venv/awx/bin \
-      /var/lib/awx/venv/awx/lib/python3.12 \
-      /var/lib/awx/venv/awx/lib/python3.12/site-packages \
+      /var/lib/awx/venv/awx/lib/python3.14 \
+      /var/lib/awx/venv/awx/lib/python3.14/site-packages \
       /var/lib/awx/projects \
       /var/lib/awx/rsyslog \
       /var/run/awx-rsyslog \
