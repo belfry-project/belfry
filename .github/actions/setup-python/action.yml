@@ -21,10 +21,10 @@ runs:
           cd ${{ inputs.working-directory }}
           py_version=`make PYTHON_VERSION`
           # The Makefile falls back to a bare "python3" when the runner has no
-          # python3.12 or python3.11, which would make setup-python install the
+          # python3.14 or python3.12, which would make setup-python install the
           # newest 3.x. Use the version AWX requires instead.
           if ! [[ "$py_version" =~ ^3\.[0-9]+$ ]]; then
-            py_version=3.12
+            py_version=3.14
           fi
           echo "py_version=$py_version" >> $GITHUB_ENV
         fi
