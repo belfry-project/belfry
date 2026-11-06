@@ -398,7 +398,7 @@ test:
 	awx-manage check_migrations --dry-run --check  -n 'missing_migration_file'
 
 live_test:
-	cd awx/main/tests/live && py.test tests/
+	cd awx/main/tests/live && py.test tests/ -v --timeout=600
 
 ## Run all API unit tests with coverage enabled.
 test_coverage:

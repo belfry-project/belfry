@@ -10,6 +10,9 @@ from django.db import connection
 
 from awx.main.models import User, JobTemplate
 
+# The subprocesses share the test's state by being forked; Python 3.14 defaults to forkserver
+mp = multiprocessing.get_context('fork')
+
 
 def create_in_subprocess(project_id, ready_event, continue_event, admin_auth):
     connection.connect()
@@ -51,12 +54,12 @@ def admin_auth(admin_for_test):
 
 def test_jt_duplicate_name(admin_auth, demo_proj):
     N_processes = 5
-    ready_events = [multiprocessing.Event() for _ in range(N_processes)]
-    continue_event = multiprocessing.Event()
+    ready_events = [mp.Event() for _ in range(N_processes)]
+    continue_event = mp.Event()
 
     processes = []
     for i in range(N_processes):
-        p = multiprocessing.Process(target=create_in_subprocess, args=(demo_proj.id, ready_events[i], continue_event, admin_auth))
+        p = mp.Process(target=create_in_subprocess, args=(demo_proj.id, ready_events[i], continue_event, admin_auth))
         processes.append(p)
         p.start()
 
