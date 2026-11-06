@@ -1,6 +1,6 @@
 import logging
 
-from multiprocessing import Process
+import multiprocessing
 
 from django.conf import settings
 from django.db import connection as django_connection
@@ -17,7 +17,9 @@ class PoolWorker(object):
     """
 
     def __init__(self, target, args):
-        self.process = Process(target=target, args=args)
+        # Python 3.14 starts processes with forkserver by default, which would have
+        # to pickle the target; the workers rely on being forked
+        self.process = multiprocessing.get_context('fork').Process(target=target, args=args)
         self.process.daemon = True
 
     def start(self):
