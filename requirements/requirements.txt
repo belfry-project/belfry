@@ -67,8 +67,6 @@ azure-keyvault-keys==4.11.0
     # via azure-keyvault
 azure-keyvault-secrets==4.10.0
     # via azure-keyvault
-backports-zstd==1.6.0
-    # via aiohttp
 boto3==1.40.46
     # via -r /awx_devel/requirements/requirements.in
 botocore==1.40.46
@@ -478,7 +476,6 @@ setuptools-scm[toml]==9.2.2
     # via -r /awx_devel/requirements/requirements.in
 six==1.17.0
     # via
-    #   azure-core
     #   kubernetes
     #   msrestazure
     #   openshift
@@ -507,8 +504,6 @@ txaio==25.9.2
     # via autobahn
 typing-extensions==4.15.0
     # via
-    #   aiohttp
-    #   aiosignal
     #   azure-core
     #   azure-identity
     #   azure-keyvault-certificates
@@ -520,11 +515,7 @@ typing-extensions==4.15.0
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-    #   psycopg
     #   pygithub
-    #   pyopenssl
-    #   pyzstd
-    #   referencing
     #   twisted
 uritemplate==4.2.0
     # via drf-spectacular
