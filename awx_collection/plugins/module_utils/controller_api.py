@@ -5,13 +5,11 @@ __metaclass__ = type
 from ansible.module_utils.basic import AnsibleModule, env_fallback
 from ansible.module_utils.urls import Request, SSLValidationError, ConnectionError
 from ansible.module_utils.parsing.convert_bool import boolean as strtobool
-from ansible.module_utils.six import PY2
-from ansible.module_utils.six import raise_from
-from ansible.module_utils.six.moves import StringIO
-from ansible.module_utils.six.moves.urllib.error import HTTPError
-from ansible.module_utils.six.moves.http_cookiejar import CookieJar
-from ansible.module_utils.six.moves.urllib.parse import urlparse, urlencode, quote
-from ansible.module_utils.six.moves.configparser import ConfigParser, NoOptionError
+from io import StringIO
+from urllib.error import HTTPError
+from http.cookiejar import CookieJar
+from urllib.parse import urlparse, urlencode, quote
+from configparser import ConfigParser, NoOptionError
 from base64 import b64encode
 from socket import getaddrinfo, IPPROTO_TCP
 import time
@@ -289,12 +287,7 @@ class ControllerModule(AnsibleModule):
 
                 try:
                     placeholder_file = StringIO(config_string)
-                    # py2 ConfigParser has readfp, that has been deprecated in favor of read_file in py3
-                    # This "if" removes the deprecation warning
-                    if hasattr(config, 'read_file'):
-                        config.read_file(placeholder_file)
-                    else:
-                        config.readfp(placeholder_file)
+                    config.read_file(placeholder_file)
 
                     # If we made it here then we have values from reading the ini file, so let's pull them out into a dict
                     config_data = {}
@@ -306,10 +299,10 @@ class ControllerModule(AnsibleModule):
                             pass
 
                 except Exception as e:
-                    raise_from(ConfigFileException("An unknown exception occured trying to ini load config file: {0}".format(e)), e)
+                    raise ConfigFileException("An unknown exception occured trying to ini load config file: {0}".format(e)) from e
 
         except Exception as e:
-            raise_from(ConfigFileException("An unknown exception occured trying to load config file: {0}".format(e)), e)
+            raise ConfigFileException("An unknown exception occured trying to load config file: {0}".format(e)) from e
 
         # Backward compatibility: config files written for older collection
         # releases used the oauth_token key; map it to aap_token.
@@ -745,10 +738,7 @@ class ControllerAPIModule(ControllerModule):
                 except (Exception) as e:
                     self.fail_json(msg="Failed to parse the response json: {0}".format(e))
 
-            if PY2:
-                status_code = response.getcode()
-            else:
-                status_code = response.status
+            status_code = response.status
 
             return {'status_code': status_code, 'json': response_json}
 
