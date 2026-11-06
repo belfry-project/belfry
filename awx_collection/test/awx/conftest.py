@@ -15,7 +15,6 @@ from requests.models import Response, PreparedRequest
 
 import pytest
 
-from ansible.module_utils.six import raise_from
 
 from ansible_base.rbac.models import RoleDefinition, DABPermission
 from ansible_base.rbac import permission_registry
@@ -187,7 +186,7 @@ def _parse_and_handle_module_result(module_stdout):
     try:
         result = json.loads(module_stdout)
     except Exception as e:
-        raise_from(Exception('Module did not write valid JSON, error: {0}, stdout:\n{1}'.format(str(e), module_stdout)), e)
+        raise Exception('Module did not write valid JSON, error: {0}, stdout:\n{1}'.format(str(e), module_stdout)) from e
 
     if 'exception' in result:
         if "ModuleNotFoundError: No module named 'tower_cli'" in result['exception']:
