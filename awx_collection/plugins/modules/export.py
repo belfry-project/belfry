@@ -118,7 +118,7 @@ EXAMPLES = '''
 '''
 
 import logging
-from ansible.module_utils.six.moves import StringIO
+from io import StringIO
 from ..module_utils.awxkit import ControllerAWXKitModule
 
 try:
