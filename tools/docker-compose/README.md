@@ -126,6 +126,10 @@ $ make docker-compose
 
 > For running docker-compose detached mode, start the containers using the following command: `$ make docker-compose COMPOSE_UP_OPTS=-d`
 
+###### PostgreSQL version
+
+The postgres container runs PostgreSQL 18 (`quay.io/sclorg/postgresql-18-c10s`), the version belfry-operator deploys. Its data is in the volume `tools_awx_db_18`. Before the move from PostgreSQL 15 the data was in `tools_awx_db_15`; PostgreSQL 18 cannot use that data directory, so the environment starts with an empty database. `make docker-clean-volumes` removes both volumes. To keep the data of an existing environment, dump it before switching (`docker exec tools_postgres_1 pg_dump -U awx -Fc awx > awx.dump`), start the new environment, and restore it (`docker exec -i tools_postgres_1 pg_restore -U awx -d awx --clean --if-exists < awx.dump`).
+
 ###### Solving database-related issues during initial startup
 
 If you have encountered the infinitely-repeating `Waiting for postgres to be ready to accept connections` message during the execution, try to do the following:

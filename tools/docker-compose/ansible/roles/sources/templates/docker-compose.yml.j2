@@ -177,7 +177,7 @@ services:
       - prometheus
 {% endif %}
   postgres:
-    image: quay.io/sclorg/postgresql-15-c9s
+    image: quay.io/sclorg/postgresql-18-c10s
     container_name: tools_postgres_1
     # additional logging settings for postgres can be found https://www.postgresql.org/docs/current/runtime-config-logging.html
     command: >
@@ -194,7 +194,7 @@ services:
       POSTGRESQL_DATABASE: {{ pg_database }}
       POSTGRESQL_PASSWORD: {{ pg_password }}
     volumes:
-      - "awx_db_15:/var/lib/pgsql/data"
+      - "awx_db_18:/var/lib/pgsql/data"
 {% if pg_tls|bool %}
       - "../../docker-compose/pgssl.conf:/opt/app-root/src/postgresql-cfg/pgssl.conf"
 {% endif %}
@@ -316,9 +316,9 @@ volumes:
   var_lib_awx:
     name: tools_var_lib_awx
 {% endif %}
-{# For the postgres 15 db upgrade we changed the mount name because 15 can't load a 12 DB #}
-  awx_db_15:
-    name: tools_awx_db_15
+{# Each PostgreSQL major version gets its own volume, because 18 can't load a 15 DB #}
+  awx_db_18:
+    name: tools_awx_db_18
 {% for i in range(control_plane_node_count|int) -%}
   {% set container_postfix = loop.index %}
   redis_socket_{{ container_postfix }}:
