@@ -6,20 +6,20 @@ body:
     attributes:
       value: |
         Bug Report issues are for **concrete, actionable bugs** only.
-        For debugging help or technical support, please see the [Get Involved section of our README](https://github.com/ansible/awx#get-involved)
+        For questions and help with installing or migrating, see the [Belfry documentation](https://belfry-project.github.io/docs/).
 
   - type: checkboxes
     id: terms
     attributes:
       label: Please confirm the following
       options:
-        - label: I agree to follow this project's [code of conduct](https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html).
+        - label: I agree to follow this project's [code of conduct](https://github.com/belfry-project/.github/blob/main/CODE_OF_CONDUCT.md).
           required: true
-        - label: I have checked the [current issues](https://github.com/ansible/awx/issues) for duplicates.
+        - label: I have checked the [current issues](https://github.com/belfry-project/belfry/issues) for duplicates.
           required: true
-        - label: I understand that AWX is open source software provided for free and that I might not receive a timely response.
+        - label: I understand that Belfry is open source software provided for free and that I might not receive a timely response.
           required: true
-        - label: I am **NOT** reporting a (potential) security vulnerability. (These should be emailed to `security@ansible.com` instead.)
+        - label: I am **NOT** reporting a (potential) security vulnerability. (Report these privately as described in [SECURITY.md](https://github.com/belfry-project/.github/blob/main/SECURITY.md), through [a private security advisory](https://github.com/belfry-project/belfry/security/advisories/new).)
           required: true
 
   - type: textarea
@@ -33,8 +33,8 @@ body:
   - type: input
     id: awx-version
     attributes:
-      label: AWX version
-      description: What version of AWX are you running?
+      label: Belfry version
+      description: What version of Belfry are you running (see `/api/v2/ping/`)?
     validations:
       required: true
 
@@ -55,10 +55,11 @@ body:
     id: awx-install-method
     attributes:
       label: Installation method
-      description: How did you install AWX?
+      description: How did you install Belfry?
       multiple: false
       options:
-        - kubernetes
+        - kubernetes (belfry-operator)
+        - kubernetes (Helm chart)
         - minikube
         - openshift
         - minishift

@@ -1,12 +1,15 @@
 ---
 blank_issues_enabled: true
 contact_links:
-  - name: For debugging help or technical support
-    url: https://github.com/ansible/awx#get-involved
-    about: For general debugging or technical support please see the Get Involved section of our readme.
-  - name: 📝 Ansible Code of Conduct
-    url: https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html?utm_medium=github&utm_source=issue_template_chooser
-    about: AWX uses the Ansible Code of Conduct; ❤ Be nice to other members of the community. ☮ Behave.
-  - name: 💼 For Enterprise
-    url: https://www.ansible.com/products/engine?utm_medium=github&utm_source=issue_template_chooser
-    about: Red Hat offers support for the Ansible Automation Platform
+  - name: Report a security vulnerability
+    url: https://github.com/belfry-project/belfry/security/advisories/new
+    about: Never in a public issue. Report vulnerabilities privately, as described in the security policy (SECURITY.md).
+  - name: Documentation and guides
+    url: https://belfry-project.github.io/docs/
+    about: Installing, migrating from AWX, upgrading, backups and the FAQ.
+  - name: Contributing guide
+    url: https://github.com/belfry-project/.github/blob/main/CONTRIBUTING.md
+    about: Where to report what, and how to send changes.
+  - name: Code of Conduct
+    url: https://github.com/belfry-project/.github/blob/main/CODE_OF_CONDUCT.md
+    about: Everyone taking part in Belfry follows the Code of Conduct.
