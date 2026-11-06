@@ -6,9 +6,9 @@
 
 {% if not headless|bool %}
 # UI_next build contaienr
-FROM quay.io/centos/centos:stream10 AS ui-builder
+FROM quay.io/almalinuxorg/almalinux:10 AS ui-builder
 USER root
-# Stream 10 has no module streams: Node.js versions are separate packages
+# EL 10 has no module streams: Node.js versions are separate packages
 # (nodejs24, nodejs24-npm) whose commands carry the version (node-24, npm-24)
 RUN dnf -y update && dnf install -y nodejs{{ nodejs_version }} nodejs{{ nodejs_version }}-npm make git && \
     for cmd in node npm npx; do ln -sf /usr/bin/$cmd-{{ nodejs_version }} /usr/bin/$cmd; done
@@ -19,7 +19,7 @@ RUN make ui
 {% endif %}
 
 # Build container
-FROM quay.io/centos/centos:stream10 AS builder
+FROM quay.io/almalinuxorg/almalinux:10 AS builder
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
@@ -30,7 +30,7 @@ ENV AWX_LOGGING_MODE=stdout
 USER root
 
 # Import the gpg key for DNF to work
-RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial-SHA256
+RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
 
 # Install build dependencies
 RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
@@ -115,7 +115,7 @@ RUN AWX_MODE=defaults \
 
 
 # Final container(s)
-FROM quay.io/centos/centos:stream10
+FROM quay.io/almalinuxorg/almalinux:10
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
@@ -125,7 +125,7 @@ ENV AWX_LOGGING_MODE=stdout
 USER root
 
 # Import the gpg key for DNF to work
-RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial-SHA256
+RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
 
 # Install runtime requirements
 RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
@@ -190,7 +190,7 @@ RUN pip3.14 install -vv 'ruff~=0.16.0' setuptools-scm build
 # This package randomly fails to download.
 # It is nice to have in the dev env, but not necessary.
 # Add it back to the list above if the repo ever straighten up.
-RUN dnf --enablerepo=baseos-debug -y install python3.14-debuginfo || :
+RUN dnf --enablerepo=baseos-debuginfo -y install python3.14-debuginfo || :
 
 RUN dnf install -y epel-release && dnf install -y inotify-tools && dnf remove -y epel-release
 {% endif %}
