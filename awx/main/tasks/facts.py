@@ -1,4 +1,3 @@
-import codecs
 import datetime
 import os
 import json
@@ -51,7 +50,7 @@ def _strip_data_tags(value):
 
 
 def _read_fact_file(filepath, tagged):
-    with codecs.open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, 'r', encoding='utf-8', newline='') as f:
         data = json.load(f)
     if tagged:
         data = _strip_data_tags(json.loads(data[TAGGED_CACHE_PAYLOAD_KEY]))
@@ -92,7 +91,7 @@ def start_fact_cache(hosts, artifacts_dir, timeout=None, inventory_id=None, log_
         try:
             for filepath, tagged in files:
                 data = {TAGGED_CACHE_PAYLOAD_KEY: json.dumps(host.ansible_facts)} if tagged else host.ansible_facts
-                with codecs.open(filepath, 'w', encoding='utf-8') as f:
+                with open(filepath, 'w', encoding='utf-8', newline='') as f:
                     os.chmod(f.name, 0o600)
                     json.dump(data, f)
                 # Backdate the file by 2 seconds so finish_fact_cache can reliably
