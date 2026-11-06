@@ -24,8 +24,7 @@ Contributing
 ------------
 
 - Refer to the [Contributing guide](./CONTRIBUTING.md) to get started developing, testing, and building Belfry.
-- All code submissions are made through pull requests against the `main` branch.
-- All contributors must use `git commit --signoff` for any commit to be merged and agree that usage of `--signoff` constitutes agreement with the terms of [DCO 1.1](./DCO_1_1.md).
+- All code submissions are made through pull requests against the `main` branch; the organization's [contributing guide](https://github.com/belfry-project/.github/blob/main/CONTRIBUTING.md) describes the process. No `--signoff` (DCO) is required.
 - Take care to make sure no merge commits are in the submission, and use `git rebase` vs. `git merge` for this reason.
 
 Reporting Issues

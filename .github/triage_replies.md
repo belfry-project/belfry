@@ -1,109 +1,64 @@
 ## General
-- Hello, we think your question is answered in our FAQ. Does this: https://www.ansible.com/products/awx-project/faq cover your question?
-- You can find the latest documentation here: https://ansible.readthedocs.io/projects/awx/en/latest/userguide/index.html
-
-
+- You can find the Belfry documentation (install, migrate from AWX, upgrade, backups, FAQ) here: https://belfry-project.github.io/docs/
+- For the AWX features themselves, the upstream AWX documentation still applies: https://ansible.readthedocs.io/projects/awx/en/latest/userguide/index.html
 
 ## PRs/Issues
 
-### Visit the Forum or Matrix
-- Hello, this appears to be less of a bug report or feature request and more of a question. Could you please ask this on either the [Ansible AWX channel on Matrix](https://matrix.to/#/#awx:ansible.com) or the [Ansible Community Forum](https://forum.ansible.com/tag/awx)?
+### Question, not a bug
+- Hello, this appears to be less of a bug report or feature request and more of a question. Please check the [Belfry documentation](https://belfry-project.github.io/docs/) first. If it does not answer your question, tell us what is missing, so we can improve the documentation.
 
 ### Denied Submission
-
 - Hi! \
 \
-Thanks very much for your submission to AWX. It means a lot to us that you have taken time to contribute. \
+Thanks very much for your submission to Belfry. It means a lot to us that you have taken time to contribute. \
 \
 At this time we do not want to merge this PR. Our reasons for this are: \
 \
 (A) INSERT ITEM HERE \
 \
-Please know that we are always up for discussion but this project is very active. Because of this, we're unlikely to see comments made on closed PRs, and we lock them after some time. If you or anyone else has any further questions, please let us know by using any of the communication methods listed in the page below: \
+If you have further questions, please open an issue in https://github.com/belfry-project/belfry/issues. For larger changes, opening an issue to agree on the approach before implementing it makes getting them included easier. \
 \
-https://github.com/ansible/awx/#get-involved \
-\
-In the future, sometimes starting a discussion on the development list prior to implementing a feature can make getting things included a little easier, but it is not always necessary. \
-\
-Thank you once again for this and your interest in AWX!
-
+Thank you once again for this and your interest in Belfry!
 
 ### No Progress Issue
 - Hi! \
 \
-Thank you very much for for this issue. It means a lot to us that you have taken time to contribute by opening this report. \
+Thank you very much for this issue. There were comments added but it has been some time since then without response, so we are closing this issue for now. If you get time to address the comments, comment here and we can reopen it. \
 \
-On this issue, there were comments added but it has been some time since then without response. At this time we are closing this issue. If you get time to address the comments we can reopen the issue if you can contact us by using any of the communication methods listed in the page below: \
-\
-https://github.com/ansible/awx/#get-involved \
-\
-Thank you once again for this and your interest in AWX!
-
+Thank you once again for this and your interest in Belfry!
 
 ### No Progress PR
 - Hi! \
 \
-Thank you very much for your submission to AWX. It means a lot to us that you have taken time to contribute. \
+Thank you very much for your submission to Belfry. Changes were requested on this PR but it has been some time since then, so we are closing it for now. You are welcome to open another PR, or comment here and we can reopen this one, when you get time to address the changes. \
 \
-On this PR, changes were requested but it has been some time since then. We think this PR has merit but without the requested changes we are unable to merge it. At this time we are closing your PR. If you get time to address the changes you are welcome to open another PR or we can reopen this PR upon request if you contact us by using any of the communication methods listed in the page below: \
-\
-https://github.com/ansible/awx/#get-involved \
-\
-Thank you once again for this and your interest in AWX!
+Thank you once again for this and your interest in Belfry!
 
+### Wrong repository
+- Hello, this seems to be about the operator. Could you please open the issue in https://github.com/belfry-project/belfry-operator/issues? Thanks!
+- Hello, this seems to be about the Helm chart. Could you please open the issue in https://github.com/belfry-project/helm-charts/issues? Thanks!
+- Hello, this seems to be about the execution environment image. Could you please open the issue in https://github.com/belfry-project/belfry-ee/issues? Thanks!
 
-### Red Hat Support Team
-- Hi! \
-\
-It appears that you are using an RPM build for RHEL. Please reach out to the Red Hat support team and submit a ticket. \
-\
-Here is the link to do so: \
-\
-https://access.redhat.com/support \
-\
-Thank you for your submission and for supporting AWX!
-
+### Security
+- Hello, please do not report vulnerabilities in public issues. Report it privately as described in our security policy: https://github.com/belfry-project/.github/blob/main/SECURITY.md
 
 ## Common
 
 ### Give us more info
-- Hello, we'd love to help, but we need a little more information about the problem you're having. Screenshots, log outputs, or any reproducers would be very helpful.
+- Hello, we'd love to help, but we need a little more information about the problem you're having. The Belfry version (`/api/v2/ping/`), the operator version, screenshots, log outputs, or any reproducers would be very helpful.
 
 ### Code of Conduct
-- Hello. Please keep in mind that Ansible adheres to a Code of Conduct in its community spaces. The spirit of the code of conduct is to be kind, and this is your friendly reminder to be so. Please see the full code of conduct here if you have questions: https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
+- Hello. Please keep in mind that Belfry follows a Code of Conduct in its community spaces. The spirit of the code of conduct is to be kind, and this is your friendly reminder to be so. See the full code of conduct here: https://github.com/belfry-project/.github/blob/main/CODE_OF_CONDUCT.md
 
 ### EE Contents / Community General
-- Hello. The awx-ee contains the collections and dependencies needed for supported AWX features to function. Anything beyond that (like the community.general package) will require you to build your own EE. For information on how to do that, see https://docs.ansible.com/projects/builder/en/stable/ \
-\
-The Ansible Community is looking at building an EE that corresponds to all of the collections inside the ansible package. That may help you if and when it happens; see https://github.com/ansible-community/community-topics/issues/31 for details.
-
-
-
-## Mailing List Triage
-
-### Create an issue
-- Hello, thanks for reaching out on list. We think this merits an issue on our GitHub, https://github.com/ansible/awx/issues. If you could open an issue up on GitHub it will get tagged and integrated into our planning and workflow. All future work will be tracked there. Issues should include as much information as possible, including screenshots, log outputs, or any reproducers.
+- Hello. The belfry-ee image contains the collections and dependencies needed for Belfry features to function. Anything beyond that (like the community.general collection) requires building your own EE. For information on how to do that, see https://docs.ansible.com/projects/builder/en/stable/
 
 ### Create a Pull Request
-- Hello, we think your idea is good! Please consider contributing a PR for this following our contributing guidelines: https://github.com/ansible/awx/blob/devel/CONTRIBUTING.md
+- Hello, we think your idea is good! Please consider contributing a PR for this following our contributing guide: https://github.com/belfry-project/.github/blob/main/CONTRIBUTING.md
 
-### Receptor
-- You can find the receptor docs here: https://docs.ansible.com/projects/receptor/en/latest/
+### Ansible, not Belfry
+- Hello, your question seems to be about Ansible itself, not about Belfry. The [Ansible Forum](https://forum.ansible.com/tag/ansible-core) is the best place for questions about Ansible. Thanks!
 - Hello, your issue seems related to receptor. Could you please open an issue in the receptor repository? https://github.com/ansible/receptor. Thanks!
-
-### Ansible Engine not AWX
-- Hello, your question seems to be about Ansible development, not about AWX. Try asking on in the Forum https://forum.ansible.com/tag/development
-- Hello, your question seems to be about using Ansible Core, not about AWX. https://forum.ansible.com/tag/ansible-core is the best place to visit for user questions about Ansible. Thanks!
-
-### Ansible Galaxy not AWX
-- Hey there. That sounds like an FAQ question. Did this: https://www.ansible.com/products/awx-project/faq cover your question?
-
-### Contributing Guidelines
-- AWX: https://github.com/ansible/awx/blob/devel/CONTRIBUTING.md
-- AWX-Operator: https://github.com/ansible/awx-operator/blob/devel/CONTRIBUTING.md
-
-### Oracle AWX
-We'd be happy to help if you can reproduce this with AWX since we do not have Oracle's Linux Automation Manager. If you need help with this specific version of Oracles Linux Automation Manager you will need to contact your Oracle for support.
 
 ### Community Resolved
 Hi,
@@ -112,19 +67,5 @@ We are happy to see that it appears a fix has been provided for your issue, so w
 
 <name of community member who helped> thanks so much for taking the time to write a thoughtful and helpful response to this issue!
 
-### AWX Release
-Subject: Announcing AWX Xa.Ya.za and AWX-Operator Xb.Yb.zb
-
-- Hi all, \
-\
-We're happy to announce that the next release of AWX, version <b>`Xa.Ya.za`</b> is now available! \
-In addition AWX Operator version <b>`Xb.Yb.zb`</b> has also been released! \
-\
-Please see the releases pages for more details: \
-	AWX: https://github.com/ansible/awx/releases/tag/Xa.Ya.za \
-	Operator: https://github.com/ansible/awx-operator/releases/tag/Xb.Yb.zb \
-\
-The AWX team.
-
 ## Try latest version
-- Hello, this issue pertains to an older version of AWX. Try upgrading to the latest version and let us know if that resolves your issue.
+- Hello, this issue pertains to an older version of Belfry. Try upgrading to the latest release and let us know if that resolves your issue.
