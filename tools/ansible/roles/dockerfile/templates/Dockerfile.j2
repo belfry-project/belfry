@@ -214,6 +214,8 @@ RUN openssl req -nodes -newkey rsa:2048 -keyout /etc/nginx/nginx.key -out /etc/n
 RUN dnf install -y podman && rpm --restore shadow-utils 2>/dev/null
 
 # chmod containers.conf and adjust storage.conf to enable Fuse storage.
+# EL 10 ships the default storage.conf in /usr/share/containers only.
+RUN test -f /etc/containers/storage.conf || cp /usr/share/containers/storage.conf /etc/containers/storage.conf
 RUN sed -i -e 's|^#mount_program|mount_program|g' -e '/additionalimage.*/a "/var/lib/shared",' -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' /etc/containers/storage.conf
 
 ENV _CONTAINERS_USERNS_CONFIGURED=""
