@@ -1168,7 +1168,10 @@ class UnifiedJob(
             fd.write(legacy_stdout_text)
             if hasattr(fd, 'name'):
                 fd.flush()
-                return open(fd.name, 'r', encoding='utf-8', newline='')
+                handle = open(fd.name, 'r', encoding='utf-8', newline='')
+                # Closing the temporary file deletes it; the open handle can still read it
+                fd.close()
+                return handle
             else:
                 # we just wrote to this StringIO, so rewind it
                 fd.seek(0)
@@ -1217,7 +1220,10 @@ class UnifiedJob(
                     # up escaped line sequences
                     fd.flush()
                     subprocess.Popen("sed -i 's/\\\\r\\\\n/\\n/g' {}".format(fd.name), shell=True).wait()
-                    return open(fd.name, 'r', encoding='utf-8', newline='')
+                    handle = open(fd.name, 'r', encoding='utf-8', newline='')
+                    # Closing the temporary file deletes it; the open handle can still read it
+                    fd.close()
+                    return handle
                 else:
                     # If we're dealing with an in-memory string buffer, use
                     # string.replace()

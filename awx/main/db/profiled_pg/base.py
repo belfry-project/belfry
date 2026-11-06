@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from contextlib import closing
 import sys
 import traceback
 import uuid
@@ -71,26 +72,26 @@ class RecordedQueryLog(object):
                 progname = 'unknown'
             filepath = os.path.join(self.dest, '{}.sqlite'.format(progname))
             version = _get_version('awx')
-            log = sqlite3.connect(filepath, timeout=3)
-            log.execute(
-                'CREATE TABLE IF NOT EXISTS queries ('
-                '   id INTEGER PRIMARY KEY,'
-                '   version TEXT,'
-                '   pid INTEGER,'
-                '   stamp DATETIME DEFAULT CURRENT_TIMESTAMP,'
-                '   argv REAL,'
-                '   time REAL,'
-                '   sql TEXT,'
-                '   explain TEXT,'
-                '   bt TEXT'
-                ');'
-            )
-            log.commit()
-            log.execute(
-                'INSERT INTO queries (pid, version, argv, time, sql, explain, bt) VALUES (?, ?, ?, ?, ?, ?, ?);',
-                (os.getpid(), version, ' '.join(sys.argv), seconds, sql, explain, bt),
-            )
-            log.commit()
+            with closing(sqlite3.connect(filepath, timeout=3)) as log:
+                log.execute(
+                    'CREATE TABLE IF NOT EXISTS queries ('
+                    '   id INTEGER PRIMARY KEY,'
+                    '   version TEXT,'
+                    '   pid INTEGER,'
+                    '   stamp DATETIME DEFAULT CURRENT_TIMESTAMP,'
+                    '   argv REAL,'
+                    '   time REAL,'
+                    '   sql TEXT,'
+                    '   explain TEXT,'
+                    '   bt TEXT'
+                    ');'
+                )
+                log.commit()
+                log.execute(
+                    'INSERT INTO queries (pid, version, argv, time, sql, explain, bt) VALUES (?, ?, ?, ?, ?, ?, ?);',
+                    (os.getpid(), version, ' '.join(sys.argv), seconds, sql, explain, bt),
+                )
+                log.commit()
 
     def __len__(self):
         return len(self.log)

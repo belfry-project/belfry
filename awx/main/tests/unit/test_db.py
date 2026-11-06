@@ -137,6 +137,7 @@ def test_sql_above_threshold(tmpdir):
     cursor = sqlite3.connect(path)
     cursor.row_factory = dict_factory
     queries_logged = cursor.execute('SELECT * FROM queries').fetchall()
+    cursor.close()
     assert len(queries_logged) == 5
     for q in queries_logged:
         assert q['pid'] == os.getpid()
