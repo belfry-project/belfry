@@ -211,7 +211,7 @@ RUN openssl req -nodes -newkey rsa:2048 -keyout /etc/nginx/nginx.key -out /etc/n
 {% endif %}
 
 {% if build_dev|bool %}
-RUN dnf install -y podman && rpm --restore shadow-utils 2>/dev/null
+RUN dnf install -y podman fuse-overlayfs && rpm --restore shadow-utils 2>/dev/null
 
 # chmod containers.conf and adjust storage.conf to enable Fuse storage.
 # EL 10 ships the default storage.conf in /usr/share/containers only.

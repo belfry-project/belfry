@@ -1,5 +1,6 @@
 # Copyright (c) 2015 Ansible, Inc.
 # All Rights Reserved
+import asyncio
 import copy
 import hashlib
 import json
@@ -75,6 +76,9 @@ class Command(BaseCommand):
         django_cache.close()
         dispatcher_setup(config)
 
+        # run_service() uses asyncio.get_event_loop(), which no longer creates a loop
+        # in Python 3.14
+        asyncio.set_event_loop(asyncio.new_event_loop())
         run_service()
 
     def configure_dispatcher_logging(self):
