@@ -162,6 +162,7 @@ class Resources(object):
     _project_copy = r'projects/\d+/copy/'
     _project_inventories = r'projects/\d+/inventories/'
     _project_organizations = r'projects/\d+/organizations/'
+    _project_launch_playbook = r'projects/\d+/launch_playbook/'
     _project_playbooks = r'projects/\d+/playbooks/'
     _project_project_updates = r'projects/\d+/project_updates/'
     _project_related_update = r'projects/\d+/update/'

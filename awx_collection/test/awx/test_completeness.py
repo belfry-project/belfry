@@ -32,6 +32,7 @@ no_endpoint_for_module = [
     'export',
     'inventory_source_update',
     'job_launch',
+    'playbook_launch',
     'job_wait',
     'job_list',
     'license',
