@@ -1236,7 +1236,7 @@ class UserSerializer(CleanTextMixin, BaseSerializer):
     # (ANSTRAT-1756): new/changed usernames containing '+' will be rejected once
     # enforcement is enabled. Existing '+' usernames are grandfathered until edited.
 
-    password = serializers.CharField(required=False, default='', allow_blank=True, help_text=_('Field used to change the password.'))
+    password = serializers.CharField(required=False, default='', allow_blank=True, help_text=_('Field used to change the password (schema check test).'))
     is_system_auditor = serializers.BooleanField(default=False)
     show_capabilities = ['edit', 'delete']
 
