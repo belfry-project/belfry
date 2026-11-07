@@ -120,6 +120,7 @@ from awx.main.utils import (
 )
 
 from awx.main.utils.filters import SmartFilter
+from awx.main.utils import fact_search
 from awx.main.utils.plugins import load_combined_inventory_source_options
 from awx.main.utils.named_url_graph import reset_counters
 from awx.main.utils.inventory_vars import update_group_variables
@@ -1826,8 +1827,8 @@ class InventorySerializer(CleanTextMixin, LabelsListMixin, BaseSerializerWithVar
         if host_filter:
             try:
                 for match in models.JSONField.get_lookups().keys():
-                    if match == 'exact':
-                        # __exact is allowed
+                    if match == 'exact' or match in fact_search.OPERATORS:
+                        # __exact and the fact search operators are allowed
                         continue
                     match = '__{}'.format(match)
                     if re.match('ansible_facts[^=]+{}='.format(match), host_filter):

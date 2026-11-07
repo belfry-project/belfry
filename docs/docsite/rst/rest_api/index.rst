@@ -25,6 +25,7 @@ Need help or want to discuss AWX including the documentation? See the :ref:`Comm
    sorting
    searching
    filtering
+   fact_search
    pagination
    access_resources
    launch_playbook

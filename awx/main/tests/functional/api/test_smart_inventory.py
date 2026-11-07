@@ -160,7 +160,7 @@ def test_host_filter_unicode(post, admin_user, smart_inv_org):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("lookup", ['icontains', 'has_keys'])
+@pytest.mark.parametrize("lookup", ['regex', 'has_keys'])
 def test_host_filter_invalid_ansible_facts_lookup(post, admin_user, smart_inv_org, lookup):
     resp = post(
         reverse('api:inventory_list'),

@@ -16,6 +16,7 @@ from django_guid.log_filters import CorrelationId
 from awx import MODE
 from awx.main.constants import LOGGER_BLOCKLIST
 from awx.main.utils.common import get_search_fields
+from awx.main.utils import fact_search
 
 __all__ = ['SmartFilter', 'ExternalLoggerEnabled', 'DynamicLevelFilter']
 
@@ -144,6 +145,10 @@ class SmartFilter(object):
     class BoolOperand(object):
         def __init__(self, t):
             kwargs = dict()
+            fact_operator = self._fact_operator(t)
+            if fact_operator is not None:
+                self.result = get_model('host').objects.filter(fact_operator)
+                return
             k, v = self._extract_key_value(t)
             k, v = self._json_path_to_contains(k, v)
 
@@ -161,6 +166,19 @@ class SmartFilter(object):
                 FieldLookupBackend().get_field_from_lookup(Host, k)
                 kwargs[k] = v
                 self.result = Host.objects.filter(**kwargs)
+
+        def _fact_operator(self, t):
+            """Q for ansible_facts__<path>__<operator>=value (Belfry fact search operators), else None."""
+            k = t[0]
+            if isinstance(k, str) and k.startswith('"') and k.endswith('"'):
+                k = k[1:-1]
+            split = fact_search.split_operator(k)
+            if split is None:
+                return None
+            v = t[1] if len(t) > 1 else ""
+            if isinstance(v, str) and len(v) > 1 and v.startswith('"') and v.endswith('"'):
+                v = v[1:-1]
+            return fact_search.fact_q(split[0], split[1], v)
 
         def strip_quotes_traditional_logic(self, v):
             if type(v) is str and v.startswith('"') and v.endswith('"'):
