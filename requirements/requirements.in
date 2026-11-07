@@ -24,6 +24,7 @@ django-solo
 djangorestframework>=3.18.2  # CVE-2026-114136, CVE-2026-114137, CVE-2026-114138
 djangorestframework-yaml
 drf-spectacular>=0.27.0
+drf-spectacular-sidecar  # Swagger UI and Redoc for the API explorer, served locally
 dynaconf
 filelock
 GitPython>=3.2.1 # CVE-2026-114145

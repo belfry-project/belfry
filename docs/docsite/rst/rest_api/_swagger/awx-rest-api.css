@@ -17,3 +17,11 @@ section .swagger-ui [id] {
   margin-top: 0;
   scroll-margin-top: 45px;
 }
+/* Tag index above the reference */
+#api-tag-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 8px 0 16px;
+  font-size: 0.9em;
+}

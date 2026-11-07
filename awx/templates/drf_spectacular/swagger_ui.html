@@ -1,0 +1,32 @@
+{% extends "drf_spectacular/swagger_ui.html" %}
+{% load i18n static %}
+{# Belfry API explorer: drf-spectacular's Swagger UI page with a Belfry header. The request JS (CSRF header, auth) stays drf-spectacular's. #}
+
+{% block head %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'api/explorer.css' %}?v={{ tower_version }}">
+{% endblock head %}
+
+{% block body %}
+<header class="belfry-bar">
+  <a class="belfry-brand" href="{% url 'api:api_v2_root_view' version='v2' %}"><img src="{% static 'belfry-icon.svg' %}" alt="" width="24" height="24"> {% trans 'Belfry API explorer' %}</a>
+  <nav>
+    <a href="{% url 'api:api_v2_root_view' version='v2' %}">{% trans 'Browsable API' %}</a>
+    <a href="{% url 'redoc' %}">ReDoc</a>
+    <a href="/">{% trans 'Web UI' %}</a>
+    {% if user.is_authenticated %}
+    <span class="belfry-user">{% blocktrans %}Logged in as {{ user }}{% endblocktrans %}</span>
+    <a href="{% url 'api:logout' %}?next={{ request.get_full_path|urlencode }}">{% trans 'Log out' %}</a>
+    {% else %}
+    <a href="{% url 'api:login' %}?next={{ request.get_full_path|urlencode }}">{% trans 'Log in' %}</a>
+    {% endif %}
+  </nav>
+</header>
+<div id="swagger-ui"></div>
+<script src="{{ swagger_ui_bundle }}"></script>
+<script src="{{ swagger_ui_standalone }}"></script>
+<script src="{% static 'api/explorer.js' %}?v={{ tower_version }}"></script>
+<script>
+{% include template_name_js %}
+</script>
+{% endblock body %}
