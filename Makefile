@@ -602,13 +602,18 @@ awx-tui:
 		$(PYTHON) -m awx_tui.main --host $(AWX_HOST); \
 	fi
 
-SCHEMA_DIFF_BASE_FOLDER ?= awx
-SCHEMA_DIFF_BASE_BRANCH ?= devel
+# Compare schema.json with a reference schema, by default reference-schema.json.
+# Create the reference by running "make genschema" on the base commit and
+# renaming its schema.json. CI (.github/workflows/api_schema_check.yml) does this for the base of each PR.
+SCHEMA_DIFF_REFERENCE ?= reference-schema.json
 detect-schema-change: genschema
-	curl https://s3.amazonaws.com/awx-public-ci-files/$(SCHEMA_DIFF_BASE_FOLDER)/$(SCHEMA_DIFF_BASE_BRANCH)/schema.json -o reference-schema.json
+	@if [ ! -f "$(SCHEMA_DIFF_REFERENCE)" ]; then \
+		echo "Reference schema $(SCHEMA_DIFF_REFERENCE) not found: generate it with 'make genschema' on the base commit"; \
+		exit 1; \
+	fi
 	# Ignore differences in whitespace with -b
 	# diff exits with 1 when files differ - capture but don't fail
-	-diff -u -b reference-schema.json schema.json
+	-diff -u -b $(SCHEMA_DIFF_REFERENCE) schema.json
 
 validate-openapi-schema: genschema
 	@echo "Validating OpenAPI schema from schema.json..."
