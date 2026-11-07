@@ -1,0 +1,27 @@
+---
+
+name: Upstream check
+
+# Weekly check for upstream commits not merged into main yet. Keeps an issue
+# labelled "upstream-sync" up to date; it never merges anything. See SYNCING.md
+# in belfry-project/.github for the sync procedure.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upstream:
+    if: github.repository == 'belfry-project/belfry'
+    permissions:
+      contents: read
+      issues: write
+    uses: belfry-project/.github/.github/workflows/upstream-check.yml@main
+    with:
+      upstream_repo: ansible/awx
+      upstream_branch: devel
+      pinned_repos: ansible/django-ansible-base devel requirements/requirements_git.txt
