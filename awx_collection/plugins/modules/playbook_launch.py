@@ -14,7 +14,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1', 'status': ['preview'], 'supported
 DOCUMENTATION = '''
 ---
 module: playbook_launch
-author: "Belfry project"
+author: "Jurre van der Gaag - Terpstra (@jterpstra1)"
 short_description: Run a playbook of a project directly, without a job template.
 description:
     - Run a playbook of a project as a job, without creating a job template (Belfry).
