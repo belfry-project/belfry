@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Redoc shows a logo from cdn.redoc.ly; allow only local images so the page makes no requests to other hosts -->
+  <meta http-equiv="Content-Security-Policy" content="img-src 'self' data:">
+  <title>Belfry OpenAPI Reference</title>
+  <style>
+    body { margin: 0; }
+    #belfry-header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: 40px; box-sizing: border-box;
+      padding: 0 16px; display: flex; align-items: center; gap: 16px; background: #1a1a1a; color: #fff;
+      font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #belfry-header a { color: #fff; }
+    #redoc { padding-top: 40px; }
+  </style>
+</head>
+<body>
+  <div id="belfry-header">
+    <strong>Belfry OpenAPI Reference</strong>
+    <a href="index.html">Back to the Belfry documentation</a>
+    <a href="../_static/schema.json" download="schema.json">Download schema.json</a>
+  </div>
+  <div id="redoc"></div>
+  <script src="../_static/redoc.standalone.js"></script>
+  <script>
+    Redoc.init('../_static/schema.json', {
+      hideHostname: true,
+      hideDownloadButtons: true,
+      scrollYOffset: 40,
+      sortTagsAlphabetically: true,
+    }, document.getElementById('redoc'));
+  </script>
+</body>
+</html>
