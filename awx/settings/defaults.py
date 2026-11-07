@@ -379,6 +379,8 @@ INSTALLED_APPS = [
     'ansible_base.rbac',
     'ansible_base.feature_flags',
     'ansible_base.api_documentation',
+    # Swagger UI and Redoc for the API explorer, served from Belfry's static files instead of a CDN
+    'drf_spectacular_sidecar',
     'flags',
 ]
 
@@ -1058,17 +1060,22 @@ ANSIBLE_BASE_RESOURCE_CONFIG_MODULE = 'awx.resource_api'
 
 # Defaults to be overridden by DAB
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'AWX API',
-    'DESCRIPTION': 'AWX API Documentation',
+    'TITLE': 'Belfry API',
+    'DESCRIPTION': (
+        'The REST API of Belfry. Requests run with the permissions of the user who makes them: '
+        'log in to the API or the web UI to use your browser session, or use "Authorize" for HTTP basic authentication. '
+        'Lists are paginated (`page`, `page_size`) and can be filtered with field lookups such as `name__icontains=web`; '
+        'hosts also accept `host_filter`. '
+        'See the [API guide](https://belfry-project.github.io/docs/belfry/rest_api/index.html) for details.'
+    ),
     'VERSION': 'v2',
     'OAS_VERSION': '3.0.3',  # Set OpenAPI Specification version to 3.0.3
     'SERVE_INCLUDE_SCHEMA': False,
     'SCHEMA_PATH_PREFIX': r'/api/v[0-9]',
     'DEFAULT_GENERATOR_CLASS': 'drf_spectacular.generators.SchemaGenerator',
     'SCHEMA_COERCE_PATH_PK_SUFFIX': True,
-    'CONTACT': {'email': 'ansible-community@redhat.com'},
-    'LICENSE': {'name': 'Apache License'},
-    'TERMS_OF_SERVICE': 'https://www.google.com/policies/terms/',
+    'LICENSE': {'name': 'Apache License 2.0', 'url': 'https://www.apache.org/licenses/LICENSE-2.0'},
+    'EXTERNAL_DOCS': {'description': 'Belfry API guide', 'url': 'https://belfry-project.github.io/docs/belfry/rest_api/index.html'},
     # Use our custom schema class that handles swagger_topic and deprecated views
     'DEFAULT_SCHEMA_CLASS': 'awx.api.schema.CustomAutoSchema',
     'COMPONENT_SPLIT_REQUEST': True,
@@ -1078,10 +1085,22 @@ SPECTACULAR_SETTINGS = {
         'awx.api.schema.inject_ai_descriptions',
         'awx.api.schema.inject_clean_text_pattern_components',
     ],
+    # The API explorer at /api/v2/docs/ loads Swagger UI and Redoc from drf-spectacular-sidecar (static files), never from a CDN
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
     'SWAGGER_UI_SETTINGS': {
         'deepLinking': True,
-        'persistAuthorization': True,
+        # Credentials entered with "Authorize" are kept in the page only, never in the browser's local storage
+        'persistAuthorization': False,
         'displayOperationId': True,
+        'displayRequestDuration': True,
+        'docExpansion': 'none',
+        'filter': True,
+        'tagsSorter': 'alpha',
+        'defaultModelsExpandDepth': 0,
+        'requestSnippetsEnabled': True,
+        'validatorUrl': None,
     },
     # Resolve enum naming collisions with meaningful names
     'ENUM_NAME_OVERRIDES': {

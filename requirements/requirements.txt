@@ -137,6 +137,7 @@ django==5.2.17
     #   django-solo
     #   djangorestframework
     #   drf-spectacular
+    #   drf-spectacular-sidecar
 # django-ansible-base[feature-flags,jwt-consumer,rbac,resource-registry,rest-filters] @ git+https://github.com/ansible/django-ansible-base@bf4d98d3d15fbdbf265c182f26fcc7c00028fa15  # git requirements installed separately
     # via -r /awx_devel/requirements/requirements_git.txt
 django-cors-headers==4.9.0
@@ -165,6 +166,8 @@ djangorestframework==3.18.3
 djangorestframework-yaml==2.0.0
     # via -r /awx_devel/requirements/requirements.in
 drf-spectacular==0.29.0
+    # via -r /awx_devel/requirements/requirements.in
+drf-spectacular-sidecar==2026.10.1
     # via -r /awx_devel/requirements/requirements.in
 durationpy==0.10
     # via kubernetes

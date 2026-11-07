@@ -1,0 +1,10 @@
+/* Belfry header for the API explorer (Swagger UI) at /api/v2/docs/ */
+body { margin: 0; background: #fafafa; }
+.belfry-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px;
+  padding: 10px 24px; background: #151515; color: #f0f0f0; font: 14px/1.4 "Red Hat Text", "Overpass", system-ui, sans-serif; }
+.belfry-bar a { color: #f0f0f0; text-decoration: none; }
+.belfry-bar a:hover { color: #73bcf7; text-decoration: underline; }
+.belfry-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+.belfry-bar nav { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.belfry-user { color: #c7c7c7; }
+.swagger-ui .topbar { display: none; }
