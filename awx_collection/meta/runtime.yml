@@ -16,6 +16,7 @@ action_groups:
     - export
     - group
     - host
+    - host_overview
     - import
     - instance
     - instance_group

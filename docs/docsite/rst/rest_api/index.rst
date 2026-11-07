@@ -29,6 +29,7 @@ Need help or want to discuss AWX including the documentation? See the :ref:`Comm
    pagination
    access_resources
    launch_playbook
+   host_overview
    read_only_fields
    authentication
    awx-manage

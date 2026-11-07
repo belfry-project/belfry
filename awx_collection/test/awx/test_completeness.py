@@ -34,6 +34,7 @@ no_endpoint_for_module = [
     'job_launch',
     'playbook_launch',
     'job_wait',
+    'host_overview',
     'job_list',
     'license',
     'ping',
