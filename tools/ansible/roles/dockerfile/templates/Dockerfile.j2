@@ -4,12 +4,17 @@
 ### DO NOT EDIT
 ###
 
+{# AlmaLinux's mirror list sometimes hands out a mirror with broken metadata,
+   and dnf does not fall back to another mirror then: fetch the metadata with
+   retries first; the following dnf commands use the cached metadata #}
+{% set dnf_makecache = "for i in 1 2 3 4 5; do dnf -y makecache --enablerepo=crb && break; dnf clean all; sleep 15; done" %}
 {% if not headless|bool %}
 # UI_next build contaienr
 FROM quay.io/almalinuxorg/almalinux:10 AS ui-builder
 USER root
 # EL 10 has no module streams: Node.js versions are separate packages
 # (nodejs24, nodejs24-npm) whose commands carry the version (node-24, npm-24)
+RUN {{ dnf_makecache }}
 RUN dnf -y update && dnf install -y nodejs{{ nodejs_version }} nodejs{{ nodejs_version }}-npm make git && \
     for cmd in node npm npx; do ln -sf /usr/bin/$cmd-{{ nodejs_version }} /usr/bin/$cmd; done
 
@@ -33,6 +38,7 @@ USER root
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
 
 # Install build dependencies
+RUN {{ dnf_makecache }}
 RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
     dnf config-manager --set-enabled crb && \
     dnf -y install \
@@ -128,6 +134,7 @@ USER root
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
 
 # Install runtime requirements
+RUN {{ dnf_makecache }}
 RUN dnf -y update && dnf install -y 'dnf-command(config-manager)' && \
     dnf config-manager --set-enabled crb && \
     dnf -y install acl \
