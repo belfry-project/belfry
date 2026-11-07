@@ -17,6 +17,7 @@ from awx.api.views import (
     HostAdHocCommandsList,
     HostAdHocCommandEventsList,
 )
+from awx.api.views.host_overview import HostOverview
 
 urls = [
     re_path(r'^$', HostList.as_view(), name='host_list'),
@@ -24,6 +25,7 @@ urls = [
     re_path(r'^(?P<pk>[0-9]+)/variable_data/$', HostVariableData.as_view(), name='host_variable_data'),
     re_path(r'^(?P<pk>[0-9]+)/groups/$', HostGroupsList.as_view(), name='host_groups_list'),
     re_path(r'^(?P<pk>[0-9]+)/all_groups/$', HostAllGroupsList.as_view(), name='host_all_groups_list'),
+    re_path(r'^(?P<pk>[0-9]+)/overview/$', HostOverview.as_view(), name='host_overview'),
     re_path(r'^(?P<pk>[0-9]+)/job_events/', HostJobEventsList.as_view(), name='host_job_events_list'),
     re_path(r'^(?P<pk>[0-9]+)/job_host_summaries/$', HostJobHostSummariesList.as_view(), name='host_job_host_summaries_list'),
     re_path(r'^(?P<pk>[0-9]+)/activity_stream/$', HostActivityStreamList.as_view(), name='host_activity_stream_list'),

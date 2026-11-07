@@ -33,6 +33,7 @@ no_endpoint_for_module = [
     'inventory_source_update',
     'job_launch',
     'job_wait',
+    'host_overview',
     'job_list',
     'license',
     'ping',

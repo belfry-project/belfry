@@ -221,6 +221,32 @@ class WorkflowLaunch(Launchable, CustomAction):
     resource = 'workflow_job_templates'
 
 
+class HostOverview(CustomAction):
+    """awx hosts overview <id or name>: GET /api/v2/hosts/{id}/overview/ (Belfry)."""
+
+    action = 'overview'
+    resource = 'hosts'
+
+    def add_arguments(self, parser, resource_options_parser):
+        from .options import pk_or_name
+
+        parser.choices['overview'].add_argument(
+            'id', type=functools.partial(pk_or_name, None, self.resource, page=self.page), help='the ID (or name) of the host'
+        )
+        parser.choices['overview'].add_argument('--facts', help='comma-separated list of top-level facts to return (default: all)')
+        parser.choices['overview'].add_argument('--jobs', type=int, help='number of recent jobs and ad hoc commands to return (0-50, default 5)')
+
+    def perform(self, facts=None, jobs=None):
+        query = {}
+        if facts is not None:
+            query['facts'] = facts
+        if jobs is not None:
+            query['jobs'] = jobs
+        # the client has already appended the host id to the endpoint
+        self.page.endpoint = self.page.endpoint + 'overview/'
+        return self.page.get(**query)
+
+
 class HasStdout(object):
     action = 'stdout'
 
