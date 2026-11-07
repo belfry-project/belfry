@@ -7,7 +7,10 @@
 {# AlmaLinux's mirror list sometimes hands out a mirror with broken metadata,
    and dnf does not fall back to another mirror then: fetch the metadata with
    retries first; the following dnf commands use the cached metadata #}
-{% set dnf_makecache = "for i in 1 2 3 4 5; do dnf -y makecache --enablerepo=crb && break; dnf clean all; sleep 15; done" %}
+{# After two failed attempts, use AlmaLinux's own server instead of the mirror list,
+   which can keep handing out the same broken mirror #}
+{% set dnf_origin = "sed -i '/^mirrorlist=/{N;s|^mirrorlist=\\([^\\n]*\\)\\n# baseurl=\\(https://repo\\.almalinux\\.org[^\\n]*\\)|#mirrorlist=\\1\\nbaseurl=\\2|}' /etc/yum.repos.d/almalinux-*.repo" %}
+{% set dnf_makecache = "for i in 1 2 3 4 5; do dnf -y makecache --enablerepo=crb && break; if [ $i -eq 2 ]; then " ~ dnf_origin ~ "; fi; dnf clean all; sleep 15; done" %}
 {% if not headless|bool %}
 # UI_next build contaienr
 FROM quay.io/almalinuxorg/almalinux:10 AS ui-builder
