@@ -3784,6 +3784,9 @@ class JobSerializer(CleanTextMixin, UnifiedJobSerializer, JobOptionsSerializer):
         except ObjectDoesNotExist:
             pass
         res['relaunch'] = self.reverse('api:job_relaunch', kwargs={'pk': obj.pk})
+        if obj.job_template_id is None and obj.project_id:
+            # Belfry: a job that ran a playbook directly can be saved as a job template
+            res['create_job_template'] = self.reverse('api:job_create_job_template', kwargs={'pk': obj.pk})
         return res
 
     def get_artifacts(self, obj):

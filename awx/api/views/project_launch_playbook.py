@@ -1,4 +1,5 @@
-# Belfry: run a playbook of a project directly, without a job template.
+# Belfry: run a playbook of a project directly, without a job template,
+# and save such a job as a job template.
 #
 # Kept in its own module (view and serializer) to ease merges from upstream.
 
@@ -6,6 +7,7 @@ import json
 from collections import OrderedDict
 
 from django.conf import settings
+from django.db import transaction
 from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
@@ -17,9 +19,10 @@ from ansible_base.lib.utils.schema import extend_schema_if_available
 
 from awx.api.fields import VerbatimField
 from awx.api.generics import RetrieveAPIView
-from awx.api.serializers import BaseSerializer, JobSerializer
+from awx.api.serializers import BaseSerializer, JobSerializer, JobTemplateSerializer
 from awx.main.models import Credential, ExecutionEnvironment, InstanceGroup, Inventory, Job, Project
 from awx.main.models.base import NEW_JOB_TYPE_CHOICES, VERBOSITY_CHOICES
+from awx.main.models.rbac import give_creator_permissions
 from awx.main.utils import parse_yaml_or_json
 from awx.main.validators import vars_validate_or_raise
 
@@ -195,6 +198,60 @@ class ProjectLaunchPlaybook(RetrieveAPIView):
             job.save()
             if data.get('credentials'):
                 job.credentials.add(*data['credentials'])
+            job.save_direct_launch_instance_groups(instance_groups)
         activity_stream_create(None, job, True)
         job.log_lifecycle("created")
         return job
+
+
+NOT_DIRECT_MESSAGE = _('Only a job that ran a playbook directly from a project, without a job template, can be saved as a job template.')
+
+
+class JobCreateJobTemplateSerializer(BaseSerializer):
+    can_create_job_template = serializers.SerializerMethodField(help_text=_('Whether this job ran a playbook directly and can be saved as a job template.'))
+    name = serializers.CharField(max_length=512, write_only=True, help_text=_('Name of the new job template.'))
+    description = serializers.CharField(required=False, allow_blank=True, write_only=True, help_text=_('Description of the new job template.'))
+
+    class Meta:
+        model = Job
+        fields = ('can_create_job_template', 'name', 'description')
+
+    def get_can_create_job_template(self, obj):
+        return bool(obj.job_template_id is None and obj.project_id)
+
+
+class JobCreateJobTemplate(RetrieveAPIView):
+    model = Job
+    serializer_class = JobCreateJobTemplateSerializer
+    obj_permission_type = 'read'  # POST: read on the job here, creating the template is checked in post()
+    resource_purpose = 'save a job that ran a playbook directly as a job template'
+
+    @extend_schema_if_available(
+        extensions={"x-ai-description": "Create a job template from a job that ran a playbook directly, with the same playbook, inventory and settings."}
+    )
+    def post(self, request, *args, **kwargs):
+        job = self.get_object()  # needs read access on the job
+        if job.job_template_id is not None or job.project_id is None:
+            return Response({'detail': NOT_DIRECT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        allowed, messages = request.user.can_access_with_errors(Job, 'create_job_template', job)
+        if not allowed:
+            raise PermissionDenied(messages.get('detail') or messages or None)
+
+        jt_data = dict(serializer.validated_data, project=job.project_id, extra_vars=job.extra_vars)
+        for field_name in SIMPLE_FIELDS:
+            jt_data[field_name] = getattr(job, '{}_id'.format(field_name), getattr(job, field_name))
+        jt_serializer = JobTemplateSerializer(data={k: v for k, v in jt_data.items() if v is not None}, context=self.get_serializer_context())
+        if not jt_serializer.is_valid():
+            return Response(jt_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            job_template = jt_serializer.save()
+            job_template.credentials.add(*job.credentials.all())
+            for instance_group in job.direct_launch_instance_groups():  # one by one to keep the order
+                job_template.instance_groups.add(instance_group)
+            give_creator_permissions(request.user, job_template)
+        data = JobTemplateSerializer(job_template, context=self.get_serializer_context()).data
+        return Response(data, status=status.HTTP_201_CREATED, headers={'Location': job_template.get_absolute_url(request)})

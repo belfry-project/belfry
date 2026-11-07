@@ -28,7 +28,35 @@ The response is the new job (``job`` holds its id). It is a normal job named
 ``<project> / <playbook>`` without a job template, with output, events, activity stream,
 cancel and relaunch. Notifications of the project and its organization apply.
 Variables given at launch are not trusted for Jinja templating, like prompted variables
-of a job template (setting ``ALLOW_JINJA_IN_EXTRA_VARS``).
+of a job template (setting ``ALLOW_JINJA_IN_EXTRA_VARS``). Instance groups given at launch
+are kept with the job, like prompts of a job template, so a relaunch runs on the same
+instance groups; without them, the default instance groups are used again.
+
+Saving a run as a job template
+------------------------------
+
+A job that ran a playbook directly can be saved as a job template, for example to schedule
+it or to give others access to it. Its ``related`` fields then hold ``create_job_template``.
+
+``POST /api/v2/jobs/<id>/create_job_template/`` with a ``name`` (required) and an optional
+``description`` creates a job template with the job's project, playbook, inventory,
+credentials, instance groups, variables and other settings, and returns it:
+
+.. code-block:: bash
+
+    curl -u admin -H 'Content-Type: application/json' \
+      -d '{"name": "Hello world on web"}' \
+      https://belfry.example.com/api/v2/jobs/42/create_job_template/
+
+``GET`` on the same URL tells through ``can_create_job_template`` whether the job ran a
+playbook directly. Jobs launched from a job template are refused (400). Saving needs the
+same access as creating the job template by hand: *use* on the project, the inventory,
+the credentials and the instance groups, and *read* on the execution environment. The user
+who saves the job becomes administrator of the new job template, whose name must be unique
+in the project's organization. Credentials that ask for passwords at launch keep asking
+for them.
+
+In the web UI, the details page of such a job has a *Save as job template* button.
 
 Permissions
 -----------
@@ -50,8 +78,9 @@ Collection and CLI
 ------------------
 
 The ``awx.awx.playbook_launch`` module and the ``awx projects launch_playbook`` CLI command
-use this endpoint:
+run a playbook directly; ``awx jobs create_job_template`` saves such a job as a job template:
 
 .. code-block:: bash
 
     awx projects launch_playbook "Demo Project" --playbook hello_world.yml --inventory 1 --wait
+    awx jobs create_job_template 42 --name "Hello world on web"
