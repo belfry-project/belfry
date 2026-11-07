@@ -1953,6 +1953,16 @@ class HostMetricSummaryMonthlyList(ListAPIView):
         return self.model.objects.all()
 
 
+def apply_host_filter(request, qs):
+    """Narrow a host queryset with the host_filter query parameter (SmartFilter syntax)."""
+    filter_string = request.query_params.get('host_filter', None)
+    if filter_string:
+        filter_qs = SmartFilter.query_from_string(filter_string)
+        qs &= filter_qs
+        qs = qs.distinct()
+    return qs
+
+
 class HostList(HostRelatedSearchMixin, ListCreateAPIView):
     always_allow_superuser = False
     model = models.Host
@@ -1965,12 +1975,7 @@ class HostList(HostRelatedSearchMixin, ListCreateAPIView):
 
     def get_queryset(self):
         qs = super(HostList, self).get_queryset()
-        filter_string = self.request.query_params.get('host_filter', None)
-        if filter_string:
-            filter_qs = SmartFilter.query_from_string(filter_string)
-            qs &= filter_qs
-            qs = qs.distinct()
-        return self._with_host_list_queryset(qs)
+        return self._with_host_list_queryset(apply_host_filter(self.request, qs))
 
     def list(self, *args, **kwargs):
         try:
@@ -2022,7 +2027,13 @@ class InventoryHostsList(HostRelatedSearchMixin, SubListCreateAttachDetachAPIVie
     resource_purpose = 'hosts of an inventory'
 
     def get_queryset(self):
-        return self._with_host_list_queryset(super().get_queryset())
+        return self._with_host_list_queryset(apply_host_filter(self.request, super().get_queryset()))
+
+    def list(self, *args, **kwargs):
+        try:
+            return super().list(*args, **kwargs)
+        except (RuntimeError, ValueError) as e:  # an invalid host_filter
+            return Response(dict(error=_(str(e))), status=status.HTTP_400_BAD_REQUEST)
 
 
 class HostGroupsList(SubListCreateAttachDetachAPIView):
