@@ -13,3 +13,9 @@
 
     ?host_filter=ansible_facts__ansible_processor_vcpus=8
     ?host_filter=ansible_facts__ansible_processor_vcpus=8 and name="my_host" and ansible_facts__ansible_lo__ipv6[]__scope=host
+
+Operators can be added after a fact path: `iexact`, `icontains`, `startswith`, `istartswith`, `endswith`, `iendswith`, `in` (comma-separated values), `isnull`, `exists`, numeric `gt`, `gte`, `lt`, `lte` and version comparisons `vgt`, `vgte`, `vlt`, `vlte` (dot-separated integers, e.g. `9.2`).
+
+    ?host_filter=ansible_facts__ansible_distribution__in=RedHat,CentOS
+    ?host_filter=ansible_facts__ansible_distribution_version__vgte=9.2
+    ?host_filter=ansible_facts__ansible_memtotal_mb__gt=8000

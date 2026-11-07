@@ -120,6 +120,7 @@ from awx.main.utils import (
 )
 
 from awx.main.utils.filters import SmartFilter
+from awx.main.utils import fact_search
 from awx.main.utils.plugins import load_combined_inventory_source_options
 from awx.main.utils.named_url_graph import reset_counters
 from awx.main.utils.inventory_vars import update_group_variables
@@ -1607,6 +1608,8 @@ class ProjectSerializer(CleanTextMixin, UnifiedJobTemplateSerializer, ProjectOpt
             res['current_update'] = self.reverse('api:project_update_detail', kwargs={'pk': obj.current_update.pk})
         if obj.last_update:
             res['last_update'] = self.reverse('api:project_update_detail', kwargs={'pk': obj.last_update.pk})
+        if settings.ALLOW_DIRECT_PLAYBOOK_LAUNCH:  # Belfry: run a playbook directly
+            res['launch_playbook'] = self.reverse('api:project_launch_playbook', kwargs={'pk': obj.pk})
         return res
 
     def to_representation(self, obj):
@@ -1824,8 +1827,8 @@ class InventorySerializer(CleanTextMixin, LabelsListMixin, BaseSerializerWithVar
         if host_filter:
             try:
                 for match in models.JSONField.get_lookups().keys():
-                    if match == 'exact':
-                        # __exact is allowed
+                    if match == 'exact' or match in fact_search.OPERATORS:
+                        # __exact and the fact search operators are allowed
                         continue
                     match = '__{}'.format(match)
                     if re.match('ansible_facts[^=]+{}='.format(match), host_filter):

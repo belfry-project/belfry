@@ -222,3 +222,44 @@ class TestSmartFilterQueryFromString:
 #('facts__facts__arr[]="foo"', 1),
 #('facts__facts__arr_nested[]__a[]="foo"', 1),
 '''
+
+
+@mock.patch('awx.main.utils.filters.get_model', return_value=mockHost())
+class TestSmartFilterFactOperators:
+    @pytest.mark.parametrize(
+        'filter_string, path, operator, value',
+        [
+            ('ansible_facts__a__icontains=foo', ['a'], 'icontains', 'foo'),
+            ('ansible_facts__a__b__startswith="Red Hat"', ['a', 'b'], 'startswith', 'Red Hat'),
+            ('"ansible_facts__a b__endswith"=x', ['a b'], 'endswith', 'x'),
+            ('ansible_facts__a__in=x,y', ['a'], 'in', 'x,y'),
+            ('ansible_facts__a__isnull=true', ['a'], 'isnull', 'true'),
+            ('ansible_facts__a__exists=false', ['a'], 'exists', 'false'),
+            ('ansible_facts__a__0__gt=8', ['a', '0'], 'gt', '8'),
+            ('ansible_facts__a__vgte=9.2', ['a'], 'vgte', '9.2'),
+        ],
+    )
+    def test_operator_parsed(self, mock_get_host_model, filter_string, path, operator, value):
+        with mock.patch('awx.main.utils.filters.fact_search.fact_q', return_value=Q(marker=1)) as fact_q:
+            q = SmartFilter.query_from_string(filter_string)
+        fact_q.assert_called_once_with(path, operator, value)
+        assert str(q) == str(Q(Q(marker=1)))
+
+    @pytest.mark.parametrize(
+        'filter_string',
+        [
+            'ansible_facts__a__in=',
+            'ansible_facts__a__isnull=maybe',
+            'ansible_facts__a__gt=abc',
+            'ansible_facts__a__vgt=9.2-1',
+            'ansible_facts__a[]__icontains=x',
+            'ansible_facts____gt=1',
+        ],
+    )
+    def test_invalid_operator_value(self, mock_get_host_model, filter_string):
+        with pytest.raises(RuntimeError):
+            SmartFilter.query_from_string(filter_string)
+
+    def test_unchanged_without_operator(self, mock_get_host_model):
+        assert str(SmartFilter.query_from_string('ansible_facts__a__b=1')) == str(Q(**{'ansible_facts__contains': {'a': {'b': 1}}}))
+        assert str(SmartFilter.query_from_string('ansible_facts__a__regex=x')) == str(Q(**{'ansible_facts__contains': {'a': {'regex': 'x'}}}))

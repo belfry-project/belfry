@@ -176,3 +176,12 @@ class Playbooks(base.Base):
 
 
 page.register_page(resources.project_playbooks, Playbooks)
+
+
+class ProjectLaunchPlaybook(base.Base):
+    """Belfry: run a playbook of a project directly (POST returns the new job)"""
+
+    pass
+
+
+page.register_page(resources.project_launch_playbook, ProjectLaunchPlaybook)

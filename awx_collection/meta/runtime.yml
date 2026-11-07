@@ -32,6 +32,7 @@ action_groups:
     - license
     - notification_template
     - organization
+    - playbook_launch
     - project
     - project_update
     - role

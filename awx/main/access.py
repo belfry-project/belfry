@@ -1407,6 +1407,46 @@ class ProjectAccess(NotificationAttachMixin, BaseAccess):
     def can_delete(self, obj):
         return self.can_change(obj, None)
 
+    def can_launch_playbook(self, obj, data, validate_license=True):
+        """
+        Belfry: run a playbook of this project directly, without a job template
+        (POST /api/v2/projects/N/launch_playbook/, and relaunching such a job).
+
+        Needs the same access as creating a job template from the same resources:
+        use on the project and inventory, read on the execution environment (both
+        via JobTemplateAccess.can_add), and use on the credentials and instance
+        groups, which a job template needs to attach them.
+        data holds model instances: inventory, credentials, execution_environment, instance_groups.
+        """
+        if not settings.ALLOW_DIRECT_PLAYBOOK_LAUNCH:
+            if self.save_messages:
+                self.messages['detail'] = _('Running playbooks directly from a project is turned off (ALLOW_DIRECT_PLAYBOOK_LAUNCH).')
+            return False
+        inventory = data.get('inventory')
+        if validate_license:
+            self.check_license()
+            if inventory:
+                self.check_org_host_limit({'inventory': inventory})
+        if self.user.is_superuser:
+            return True
+
+        jt_data = {'project': obj.pk}
+        for field in ('inventory', 'execution_environment'):
+            if data.get(field):
+                jt_data[field] = data[field].pk
+        jt_access = JobTemplateAccess(self.user, save_messages=self.save_messages)
+        if not jt_access.can_add(jt_data):
+            if self.save_messages:
+                self.messages.update(jt_access.messages)
+            return False
+        for field, model_name in (('credentials', _('Credential')), ('instance_groups', _('Instance Group'))):
+            for related in data.get(field) or []:
+                if self.user not in related.use_role:
+                    if self.save_messages:
+                        self.messages[field] = [_('You do not have use permission on {model_name} {name}.').format(model_name=model_name, name=related.name)]
+                    return False
+        return True
+
 
 class ProjectUpdateAccess(BaseAccess):
     """
@@ -1679,10 +1719,12 @@ class JobAccess(BaseAccess):
         org_access_qs = Organization.objects.filter(
             Q(pk__in=Organization.access_ids_qs(self.user, 'change')) | Q(pk__in=Organization.access_ids_qs(self.user, 'audit_organization'))
         )
+        # Belfry: jobs without a job template (direct playbook launches) are visible to whoever launched them
+        own_templateless = Q(job_template__isnull=True, created_by=self.user)
         if not org_access_qs.exists():
-            return qs.filter(job_template__in=JobTemplate.access_qs(self.user, 'view'))
+            return qs.filter(Q(job_template__in=JobTemplate.access_qs(self.user, 'view')) | own_templateless)
 
-        return qs.filter(Q(job_template__in=JobTemplate.access_qs(self.user, 'view')) | Q(organization__in=org_access_qs))
+        return qs.filter(Q(job_template__in=JobTemplate.access_qs(self.user, 'view')) | Q(organization__in=org_access_qs) | own_templateless)
 
     def can_add(self, data, validate_license=True):
         raise NotImplementedError('Direct job creation not possible in v2 API')
@@ -1728,6 +1770,15 @@ class JobAccess(BaseAccess):
             elif not config.has_unprompted(obj.job_template):
                 if JobLaunchConfigAccess(self.user).can_add({'reference_obj': config}):
                     return True
+
+        # Belfry: a job without a job template (direct playbook launch) may be relaunched
+        # by whoever may run the same playbook directly with the same resources
+        if not obj.job_template and obj.project and settings.ALLOW_DIRECT_PLAYBOOK_LAUNCH:
+            if obj.created_by_id != self.user.pk and vars_are_encrypted(obj.extra_vars_dict):
+                raise PermissionDenied(_('Job was launched with secret variables provided by another user.'))
+            direct_data = dict(inventory=obj.inventory, credentials=list(obj.credentials.all()), execution_environment=obj.execution_environment)
+            if ProjectAccess(self.user).can_launch_playbook(obj.project, direct_data, validate_license=False):
+                return True
 
         # Standard permissions model without job template involved
         if obj.organization and self.user in obj.organization.execute_role:
@@ -2516,6 +2567,8 @@ class UnifiedJobAccess(BaseAccess):
         inv_pk_qs = Inventory.access_ids_qs(self.user, 'view')
         return self.model.objects.filter(
             Q(unified_job_template_id__in=UnifiedJobTemplate.access_ids_qs(self.user, 'view'))
+            # Belfry: jobs without a job template (direct playbook launches) are visible to whoever launched them
+            | Q(pk__in=Job.objects.filter(job_template__isnull=True, created_by=self.user).values('pk'))
             | Q(
                 pk__in=InventoryUpdate.objects.filter(
                     inventory_source__inventory__id__in=inv_pk_qs,
