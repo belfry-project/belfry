@@ -657,7 +657,20 @@ class Job(UnifiedJob, JobOptions, SurveyJobMixin, JobNotificationMixin, TaskMana
         new_prompts.setdefault('_eager_fields', {})
         new_prompts['_eager_fields']['job_slice_number'] = self.job_slice_number
         new_prompts['_eager_fields']['job_slice_count'] = self.job_slice_count
-        return super(Job, self).copy_unified_job(**new_prompts)
+        if self.job_template_id is None:
+            # Belfry: a job without template (direct playbook launch) is copied field by field,
+            # which ignores prompts, so pass relaunch changes (limit of failed hosts, job_type) as eager fields
+            for field_name in ('limit', 'job_type'):
+                if field_name in new_prompts:
+                    new_prompts['_eager_fields'][field_name] = new_prompts.pop(field_name)
+        job = super(Job, self).copy_unified_job(**new_prompts)
+        if self.job_template_id is None:
+            # Belfry: the field by field copy skips what create_unified_job computes
+            job.preferred_instance_groups_cache = job._get_preferred_instance_group_cache()
+            job._set_default_dependencies_processed()
+            job.task_impact = job._get_task_impact()
+            job.save(update_fields=['preferred_instance_groups_cache', 'dependencies_processed', 'task_impact'])
+        return job
 
     def get_passwords_needed_to_start(self):
         return self.passwords_needed_to_start
@@ -836,6 +849,9 @@ class Job(UnifiedJob, JobOptions, SurveyJobMixin, JobNotificationMixin, TaskMana
 
     def get_notification_templates(self):
         if not self.job_template:
+            # Belfry: jobs without template (direct playbook launches) notify like their project (project and organization)
+            if self.project:
+                return self.project.notification_templates
             return NotificationTemplate.objects.none()
         return self.job_template.notification_templates
 

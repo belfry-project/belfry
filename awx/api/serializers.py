@@ -1607,6 +1607,8 @@ class ProjectSerializer(CleanTextMixin, UnifiedJobTemplateSerializer, ProjectOpt
             res['current_update'] = self.reverse('api:project_update_detail', kwargs={'pk': obj.current_update.pk})
         if obj.last_update:
             res['last_update'] = self.reverse('api:project_update_detail', kwargs={'pk': obj.last_update.pk})
+        if settings.ALLOW_DIRECT_PLAYBOOK_LAUNCH:  # Belfry: run a playbook directly
+            res['launch_playbook'] = self.reverse('api:project_launch_playbook', kwargs={'pk': obj.pk})
         return res
 
     def to_representation(self, obj):

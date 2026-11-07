@@ -21,6 +21,7 @@ from awx.api.views import (
     ProjectAccessList,
     ProjectCopy,
 )
+from awx.api.views.project_launch_playbook import ProjectLaunchPlaybook
 
 urls = [
     re_path(r'^$', ProjectList.as_view(), name='project_list'),
@@ -49,6 +50,7 @@ urls = [
     re_path(r'^(?P<pk>[0-9]+)/object_roles/$', ProjectObjectRolesList.as_view(), name='project_object_roles_list'),
     re_path(r'^(?P<pk>[0-9]+)/access_list/$', ProjectAccessList.as_view(), name='project_access_list'),
     re_path(r'^(?P<pk>[0-9]+)/copy/$', ProjectCopy.as_view(), name='project_copy'),
+    re_path(r'^(?P<pk>[0-9]+)/launch_playbook/$', ProjectLaunchPlaybook.as_view(), name='project_launch_playbook'),
 ]
 
 __all__ = ['urls']
