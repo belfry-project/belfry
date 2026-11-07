@@ -1,12 +1,12 @@
 import sys
 import os
 import shlex
-import warnings
 
 from datetime import datetime
 from importlib import import_module
 
 sys.path.insert(0, os.path.abspath('./rst/rest_api/_swagger'))
+sys.path.insert(0, os.path.abspath('./rst/open_api/_redoc'))
 
 project = u'Belfry'
 copyright = u'2026, Red Hat, Inc. and the Belfry contributors'
@@ -36,9 +36,9 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.ifconfig',
     'sphinx_ansible_theme',
-    'sphinxcontrib.redoc',
     'notfound.extension',
     'swagger',
+    'redoc_page',
 ]
 
 # Published at https://belfry-project.github.io/docs/belfry/
@@ -63,27 +63,6 @@ language = 'en'
 
 locale_dirs = ['locale/']  # path is example but recommended.
 gettext_compact = False  # optional.
-
-redoc = [
-    {
-        'name': 'AWX OpenAPI Reference',
-        'page': 'open_api/explorer',
-        'spec': 'rst/open_api/schema.json',
-        'embed': True,
-        'opts': {
-            'suppress-warnings': True,
-            'hide-hostname': True,
-        }
-    }
-]
-
-# Suppress pkg_resources deprecation from sphinxcontrib-redoc
-warnings.filterwarnings(
-    'ignore',
-    message='pkg_resources is deprecated',
-    category=UserWarning,
-    module='sphinxcontrib.redoc',
-)
 
 # Shown at the top of every page
 rst_prolog = """
