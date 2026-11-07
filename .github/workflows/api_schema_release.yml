@@ -1,0 +1,72 @@
+---
+name: Attach API schema to release
+
+# Generates the OpenAPI schema (make genschema) of a release tag and attaches
+# it to the GitHub release as schema.json, so the schema of the latest release
+# is always at
+# https://github.com/belfry-project/belfry/releases/latest/download/schema.json
+# The Belfry manual (docs/docsite/download-json.py) downloads it from there.
+#
+# Runs when a release is published; run it manually to (re)attach the schema
+# to an existing release.
+
+env:
+  LC_ALL: "C.UTF-8" # prevent ERROR: Ansible could not initialize the preferred locale: unsupported locale setting
+  DEV_DOCKER_OWNER: ${{ github.repository_owner }}
+  COMPOSE_TAG: ${{ github.ref_name }}
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach the schema to (X.Y.Z or X.Y.Z-rc.N)'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-schema-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  schema:
+    if: github.repository == 'belfry-project/belfry'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: read
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Check that the release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release view "${TAG}" --json tagName --jq .tagName
+
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          show-progress: false
+          fetch-depth: 0
+
+      - name: Build awx_devel image for schema generation
+        uses: ./.github/actions/awx_devel_image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          private-github-key: ${{ secrets.PRIVATE_GITHUB_KEY }}
+
+      - name: Generate the API schema
+        run: |
+          AWX_DOCKER_ARGS='-e GITHUB_ACTIONS' AWX_DOCKER_CMD='make genschema' make docker-runner
+          python3 -c 'import json; s = json.load(open("schema.json")); print(s["openapi"], len(s["paths"]), "paths")'
+
+      - name: Attach the schema to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload "${TAG}" schema.json --clobber

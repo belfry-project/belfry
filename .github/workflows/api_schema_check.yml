@@ -23,6 +23,7 @@ jobs:
     permissions:
       packages: write
       contents: read
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -36,14 +37,45 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           private-github-key: ${{ secrets.PRIVATE_GITHUB_KEY }}
 
+      # The reference is the schema of the commit this PR is compared with:
+      # the first parent of the merge commit that pull_request checks out, so
+      # the base branch as it is now, generated with the same devel image.
+      - name: Generate the reference schema from the base commit
+        id: reference
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          head=$(git rev-parse HEAD)
+          if git rev-parse -q --verify HEAD^2 >/dev/null; then
+            base=$(git rev-parse HEAD^1)
+          else
+            base="${BASE_SHA}"
+          fi
+          echo "Reference: ${base}, PR: ${head}"
+          git checkout -q --detach "${base}"
+          AWX_DOCKER_ARGS='-e GITHUB_ACTIONS' AWX_DOCKER_CMD='make genschema' make docker-runner
+          mv schema.json "${RUNNER_TEMP}/reference-schema.json"
+          git checkout -q --detach "${head}"
+          mv "${RUNNER_TEMP}/reference-schema.json" reference-schema.json
+          echo "base=${base}" >> "$GITHUB_OUTPUT"
+
       - name: Detect API schema changes
         id: schema-check
+        if: steps.reference.outcome == 'success'
         continue-on-error: true
         run: |
           AWX_DOCKER_ARGS='-e GITHUB_ACTIONS' \
-          AWX_DOCKER_CMD='make detect-schema-change SCHEMA_DIFF_BASE_BRANCH=${{ github.event.pull_request.base.ref }}' \
-          make docker-runner 2>&1 | tee schema-diff.txt
-          exit ${PIPESTATUS[0]}
+          AWX_DOCKER_CMD='make genschema' \
+          make docker-runner
+          # Ignore differences in whitespace with -b, like make detect-schema-change
+          diff -u -b reference-schema.json schema.json > schema-diff.txt && changed=false || changed=true
+          python3 tools/scripts/api_schema_diff.py reference-schema.json schema.json > schema-changes.md || true
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          cat schema-changes.md
+          if [ "${changed}" = "true" ]; then
+            echo "::notice title=API schema changed::This PR changes the API schema; see the job summary"
+          fi
 
       - name: Validate OpenAPI schema
         id: schema-validation
@@ -81,22 +113,79 @@ jobs:
 
           # Show schema changes
           echo "### Schema Changes" >> $GITHUB_STEP_SUMMARY
-          if [ -f schema-diff.txt ]; then
-            if grep -q "^+" schema-diff.txt || grep -q "^-" schema-diff.txt; then
-              echo "**Changes detected** between this PR and the base branch" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.schema-check.outputs.changed }}" = "false" ]; then
+            echo "No schema changes detected compared with ${{ steps.reference.outputs.base }}" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.schema-check.outputs.changed }}" = "true" ]; then
+            echo "**Changes detected** compared with ${{ steps.reference.outputs.base }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat schema-changes.md >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            # Truncate to first 1000 lines to stay under GitHub's 1MB summary limit
+            TOTAL_LINES=$(wc -l < schema-diff.txt)
+            if [ $TOTAL_LINES -gt 1000 ]; then
+              echo "_Showing first 1000 of ${TOTAL_LINES} lines. Download the api-schema artifact for the full diff._" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
-              # Truncate to first 1000 lines to stay under GitHub's 1MB summary limit
-              TOTAL_LINES=$(wc -l < schema-diff.txt)
-              if [ $TOTAL_LINES -gt 1000 ]; then
-                echo "_Showing first 1000 of ${TOTAL_LINES} lines. See job logs or download artifact for full diff._" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-              fi
-              echo '```diff' >> $GITHUB_STEP_SUMMARY
-              head -n 1000 schema-diff.txt >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-            else
-              echo "No schema changes detected" >> $GITHUB_STEP_SUMMARY
             fi
+            echo "<details><summary>Diff</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```diff' >> $GITHUB_STEP_SUMMARY
+            head -n 1000 schema-diff.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
             echo "Unable to generate schema diff" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload the schemas and the diff
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-schema
+          path: |
+            reference-schema.json
+            schema.json
+            schema-diff.txt
+            schema-changes.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # One comment per PR, updated on each run. Pull requests from forks get
+      # a read-only token; they only have the job summary.
+      - name: Comment on the PR when the API schema changes
+        if: >-
+          steps.schema-check.outputs.changed != ''
+          && github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          CHANGED: ${{ steps.schema-check.outputs.changed }}
+          BASE: ${{ steps.reference.outputs.base }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker='<!-- api-schema-check -->'
+          comment_id=$(gh api --paginate "repos/${GH_REPO}/issues/${PR}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"${marker}\"))) | .id" | head -n 1)
+          if [ "${CHANGED}" = "true" ]; then
+            {
+              echo "${marker}"
+              echo "### This PR changes the API schema"
+              echo ""
+              echo "Compared with the base commit ${BASE}:"
+              echo ""
+              head -c 60000 schema-changes.md
+              echo ""
+              echo "Full diff: job summary and \`api-schema\` artifact of [this run](${RUN_URL})."
+            } > comment.md
+          elif [ -n "${comment_id}" ]; then
+            printf '%s\n%s\n\n%s\n' "${marker}" "### API schema unchanged" \
+              "The latest commit no longer changes the API schema compared with ${BASE} ([run](${RUN_URL}))." > comment.md
+          else
+            exit 0
+          fi
+          if [ -n "${comment_id}" ]; then
+            gh api -X PATCH "repos/${GH_REPO}/issues/comments/${comment_id}" -F body=@comment.md > /dev/null
+          else
+            gh pr comment "${PR}" --body-file comment.md
           fi
