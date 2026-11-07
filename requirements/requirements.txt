@@ -138,7 +138,7 @@ django==5.2.17
     #   djangorestframework
     #   drf-spectacular
     #   drf-spectacular-sidecar
-# django-ansible-base[feature-flags,jwt-consumer,rbac,resource-registry,rest-filters] @ git+https://github.com/ansible/django-ansible-base@bf4d98d3d15fbdbf265c182f26fcc7c00028fa15  # git requirements installed separately
+# django-ansible-base[feature-flags,jwt-consumer,rbac,resource-registry,rest-filters] @ git+https://github.com/ansible/django-ansible-base@737f98b5b886f5ef2344abf98521c35a1a062100  # git requirements installed separately
     # via -r /awx_devel/requirements/requirements_git.txt
 django-cors-headers==4.9.0
     # via -r /awx_devel/requirements/requirements.in
