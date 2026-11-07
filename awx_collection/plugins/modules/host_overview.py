@@ -15,7 +15,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1', 'status': ['preview'], 'supported
 DOCUMENTATION = '''
 ---
 module: host_overview
-author: "Belfry contributors"
+author: "Jurre van der Gaag - Terpstra (@jterpstra1)"
 short_description: Get an overview of a host.
 description:
     - Get a host with its variables, direct and inherited groups, facts, the last job per job template
