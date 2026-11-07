@@ -1,87 +1,140 @@
 {% extends 'rest_framework/base.html' %}
-{% load i18n static ansible_base.lib.templatetags.requests ansible_base.lib.templatetags.util %}
+{% load i18n static rest_framework ansible_base.lib.templatetags.requests ansible_base.lib.templatetags.util %}
+{# Belfry's browsable API: DRF's browsable API renderer and forms, with Belfry's own markup, stylesheet and script (no Bootstrap, jQuery or CDN). #}
 
 {% block title %}{{ name }} &middot; {% trans 'Belfry REST API' %}{% endblock %}
 
-{% block bootstrap_theme %}
+{% block style %}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <link href="{% static 'media/favicon.ico' %}?v={{ tower_version }}" rel="shortcut icon" />
   {% is_proxied_request as proxied %}
-  <link rel="stylesheet" type="text/css" href="{% static 'rest_framework/css/bootstrap.min.css' %}" />
   {% if proxied %}
   <style>
     {# inline_file from DAB #}
     {% inline_file "static/api/api.css" True %}
   </style>
   {% else %}
-  <link rel="stylesheet" type="text/css" href="{% static 'api/api.css' %}?v={{tower_version}}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'api/api.css' %}?v={{ tower_version }}" />
   {% endif %}
 {% endblock %}
 
-{% block style %}
-<link href="{% static 'media/favicon.ico' %}?v={{tower_version}}" rel="shortcut icon" />
-{{ block.super }}
+{% block body %}
+<body class="{% block bodyclass %}{% endblock %}">
+{% block navbar %}
+<header class="topbar">
+  <a class="brand" href="{% url 'api:api_root_view' %}"><img src="{% static 'belfry-icon.svg' %}" alt="" width="26" height="26"><span>Belfry</span> <span class="brand-sub">{% trans 'REST API' %}</span></a>
+  <nav class="toplinks" aria-label="{% trans 'API links' %}">
+    <a href="/api/v2/docs/">{% trans 'API explorer' %}</a>
+    <a href="https://belfry-project.github.io/docs/belfry/rest_api/index.html" target="_blank" rel="noopener">{% trans 'API guide' %}</a>
+    <a href="/">{% trans 'Web UI' %}</a>
+    {% if user.is_authenticated and not inside_login_context %}
+    <a class="user" href="{% url 'api:user_me_list' version='v2' %}" title="{% trans 'Logged in as' %} {{ user }}{% if user.get_full_name %} ({{ user.get_full_name }}){% endif %}">{{ user }}</a>
+    <a href="{% url 'api:logout' %}?next=/api/login/">{% trans 'Log out' %}</a>
+    {% elif not inside_login_context %}
+    <a class="login" href="{% url 'api:login' %}?next={{ request.get_full_path|urlencode }}">{% trans 'Log in' %}</a>
+    {% endif %}
+  </nav>
+</header>
 {% endblock %}
 
-{% block navbar %}
-  <div class="navbar navbar-fixed-top">
-    <div class="container">
-      <div class="navbar-header">
-        <button type="button btn btn-primary" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse" aria-expanded="false">
-          <span class="sr-only">Toggle navigation</span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-        </button>
-        <a class="navbar-brand" href="{% url 'api:api_root_view' %}">
-          <span>{% trans 'REST API' %}</span>
-        </a>
-        <a class="navbar-title" href="{{ request.get_full_path }}">
-          <span>&nbsp;&mdash; {{name}}</span>
-        </a>
-      </div>
-      <div class="collapse navbar-collapse" id="navbar-collapse">
-        <ul class="nav navbar-nav navbar-right">
-          {% if user.is_authenticated and not inside_login_context %}
-          <li><a href="{% if request.version %}{% url 'api:user_me_list' version=request.version%}{% else %}{% url 'api:user_me_list' version="v2" %}{% endif %}" data-toggle="tooltip" data-placement="bottom" data-delay="1000" title="Logged in as {{ user }}{% if user.get_full_name %} ({{ user.get_full_name }}){% endif %}"><span class="glyphicon glyphicon-user"></span> <span class="visible-xs-inline">Logged in as </span>{{ user }}{% if user.get_full_name %}<span class="visible-xs-inline"> ({{ user.get_full_name }})</span>{% endif %}</a></li>
-          <li><a href="{% url 'api:logout' %}?next=/api/login/" data-toggle="tooltip" data-placement="bottom" data-delay="1000" title="Log out"><span class="glyphicon glyphicon-log-out"></span>Log out</a></li>
-          {% else %}
-          <li><a href="{% url 'api:login' %}?next={{ request.get_full_path }}" data-toggle="tooltip" data-placement="bottom" data-delay="1000" title="Log in"><span class="glyphicon glyphicon-log-in"></span>Log in</a></li>
-          {% endif %}
-          <li><a href="https://belfry-project.github.io/docs/belfry/rest_api/index.html" target="_blank" data-toggle="tooltip" data-placement="bottom" data-delay="1000" title="{% trans 'API Guide' %}"><span class="glyphicon glyphicon-question-sign"></span><span class="visible-xs-inline">{% trans 'API Guide' %}</span></a></li>
-          <li><a href="/" data-toggle="tooltip" data-placement="bottom" data-delay="1000" title="{% trans 'Back to application' %}"><span class="glyphicon glyphicon-circle-arrow-left"></span><span class="visible-xs-inline">{% trans 'Back to application' %}</span></a></li>
-          <li class="hidden-xs"><a href="#" class="resize" data-toggle="tooltip" data-placement="bottom" data-delay="1000" title="{% trans 'Resize' %}"><span class="glyphicon glyphicon-resize-full"></span></a></li>
-        </ul>
-      </div>
+<main class="page" id="content">
+  {% block breadcrumbs %}
+  <nav class="breadcrumbs" aria-label="{% trans 'Breadcrumbs' %}">
+    {% for breadcrumb_name, breadcrumb_url in breadcrumblist %}
+      {% if forloop.last %}<span aria-current="page">{{ breadcrumb_name }}</span>{% else %}<a href="{{ breadcrumb_url }}">{{ breadcrumb_name }}</a><span class="sep">/</span>{% endif %}
+    {% endfor %}
+  </nav>
+  {% endblock %}
+
+  {% block content %}
+  {% if deprecated %}
+  <div class="notice warning"><b>{% trans 'This resource has been deprecated and will be removed in a future release.' %}</b></div>
+  {% endif %}
+
+  <div class="title-row">
+    <h1>{{ name }}</h1>
+    <div class="actions">
+      {% if 'GET' in allowed_methods %}
+      <a class="btn" href="{{ request.get_full_path }}" rel="nofollow" title="{% trans 'Make a GET request' %}">GET</a>
+      <a class="btn secondary" href="{% add_query_param request 'format' 'json' %}" rel="nofollow" title="{% trans 'Show the response as plain JSON' %}">JSON</a>
+      {% endif %}
+      {% if options_form %}
+      <form class="inline" action="{{ request.get_full_path }}" data-method="OPTIONS"><button class="btn secondary" title="{% trans 'Make an OPTIONS request: fields and actions of this resource' %}">OPTIONS</button></form>
+      {% endif %}
+      {% if delete_form %}
+      <form class="inline" action="{{ request.get_full_path }}" data-method="DELETE" data-confirm="{% blocktrans %}Delete this {{ name }}?{% endblocktrans %}"><button class="btn danger" title="{% trans 'Make a DELETE request' %}">DELETE</button></form>
+      {% endif %}
+      {% if extra_actions %}
+        {% for action_name, url in extra_actions|items %}<a class="btn secondary" href="{{ url }}">{{ action_name }}</a>{% endfor %}
+      {% endif %}
     </div>
   </div>
-{% endblock %}
 
-{% block content %}
-  {% if deprecated %}
-    <div class="breadcrumb" style="background: #FCC;">
-        <b>This resource has been deprecated and will be removed in a future release.</b>
-    </div>
+  {% if description %}
+  <details class="description">
+    <summary>{% trans 'Description' %}</summary>
+    <div class="description-body">{% block description %}{{ description }}{% endblock %}</div>
+  </details>
   {% endif %}
-{{ block.super }}
-{% endblock content %}
+
+  <section class="request-info" aria-label="{% trans 'Request' %}">
+    <span class="method method-{{ request.method|lower }}">{{ request.method }}</span> <code>{{ request.get_full_path }}</code>
+  </section>
+
+  <section class="response-info" aria-label="{% trans 'Response' %}">
+    <div class="meta">
+      <span class="status status-{{ response.status_code|stringformat:'s'|slice:':1' }}xx">HTTP {{ response.status_code }} {{ response.status_text }}</span>
+      <details class="headers"><summary>{% trans 'Headers' %}</summary>
+        <dl>{% for key, val in response_headers|items %}<dt>{{ key }}</dt><dd>{{ val }}</dd>{% endfor %}</dl>
+      </details>
+      <span class="tools">
+        <button type="button" class="link" data-tree="expand">{% trans 'Expand all' %}</button>
+        <button type="button" class="link" data-tree="collapse">{% trans 'Collapse all' %}</button>
+        <button type="button" class="link" data-tree="raw">{% trans 'Raw' %}</button>
+      </span>
+    </div>
+    {% if paginator %}<nav class="pagination-nav">{% get_pagination_html paginator %}</nav>{% endif %}
+    <pre class="content" id="response-content">{{ content }}</pre>
+  </section>
+
+  {% if display_edit_forms %}
+    {% if raw_data_post_form %}
+    <section class="form-card">
+      <h2>POST</h2>
+      {% with form=raw_data_post_form %}
+      <form action="{{ request.get_full_path }}" method="POST" data-method="POST">
+        {% include "rest_framework/raw_data_form.html" %}
+        <div class="form-actions"><button class="btn" title="{% trans 'Make a POST request' %}">POST</button></div>
+      </form>
+      {% endwith %}
+    </section>
+    {% endif %}
+    {% if raw_data_put_or_patch_form %}
+    <section class="form-card">
+      <h2>{% if raw_data_put_form %}PUT{% endif %}{% if raw_data_put_form and raw_data_patch_form %} / {% endif %}{% if raw_data_patch_form %}PATCH{% endif %}</h2>
+      {% with form=raw_data_put_or_patch_form %}
+      <form action="{{ request.get_full_path }}" data-method="PUT">
+        {% include "rest_framework/raw_data_form.html" %}
+        <div class="form-actions">
+          {% if raw_data_put_form %}<button class="btn" data-method="PUT" title="{% trans 'Replace the resource (PUT)' %}">PUT</button>{% endif %}
+          {% if raw_data_patch_form %}<button class="btn" data-method="PATCH" title="{% trans 'Change only the given fields (PATCH)' %}">PATCH</button>{% endif %}
+        </div>
+      </form>
+      {% endwith %}
+    </section>
+    {% endif %}
+  {% endif %}
+  {% endblock content %}
+</main>
 
 {% block script %}
-<div id="footer">
-  <div class="container">
-    <div class="row">
-      <div class="col-sm-6">
-      </div>
-      <div class="col-sm-6 footer-copyright">
-        Copyright &copy; 2024 <a href="http://www.redhat.com" target="_blank">Red Hat</a>, Inc. All Rights Reserved.
-      </div>
-    </div>
-  </div>
-</div>
-<div class="hidden">
-  <a class="hide-description pull-right js-tooltip" href="#" title="Hide Description"><span class="glyphicon glyphicon-remove-sign"></span></a>
-  <a class="toggle-description js-tooltip" href="#" title="Show/Hide Description"><span class="glyphicon glyphicon-question-sign"></span></a>
-</div>
-{{ block.super }}
-
+<script type="application/json" id="drf_csrf">
+  {
+    "csrfHeaderName": "{{ csrf_header_name|default:'X-CSRFToken' }}",
+    "csrfToken": "{% if request %}{{ csrf_token }}{% endif %}"
+  }
+</script>
 {% is_proxied_request as proxied %}
 {% if proxied %}
 <script>
@@ -89,6 +142,8 @@
   {% inline_file "static/api/api.js" True %}
 </script>
 {% else %}
-<script src="{% static 'api/api.js' %}?v={{tower_version}}"></script>
+<script src="{% static 'api/api.js' %}?v={{ tower_version }}"></script>
 {% endif %}
 {% endblock %}
+</body>
+{% endblock body %}
