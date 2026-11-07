@@ -390,3 +390,19 @@ def test_last_job_host_summary_failed_filter_both_params(hosts_with_job_summarie
     response = get(url, admin_user)
     assert response.status_code == 200
     assert get_host_names(response) == []
+
+
+@pytest.mark.django_db
+def test_host_filter_on_inventory_hosts(get, admin_user, host_filter_inventory):
+    """The hosts of an inventory take host_filter like /api/v2/hosts/."""
+    inv = host_filter_inventory['inv']
+    other = Inventory.objects.create(name="other-inv", organization=host_filter_inventory['org'])
+    Host.objects.create(name="hostA", inventory=other)
+    url = reverse('api:inventory_hosts_list', kwargs={'pk': inv.pk})
+
+    response = get(url + '?host_filter=' + urllib.parse.quote('name=hostA or groups__name=groupB', safe=''), admin_user)
+    assert response.status_code == 200
+    assert get_host_names(response) == ['hostA', 'hostB', 'hostDup']
+
+    response = get(url + '?host_filter=' + urllib.parse.quote('name=(', safe=''), admin_user)
+    assert response.status_code == 400
