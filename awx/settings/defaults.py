@@ -520,6 +520,9 @@ AWX_REBUILD_SMART_MEMBERSHIP = False
 # By default, allow arbitrary Jinja templating in extra_vars defined on a Job Template
 ALLOW_JINJA_IN_EXTRA_VARS = 'template'
 
+# Belfry: allow running a playbook of a project directly, without a job template
+ALLOW_DIRECT_PLAYBOOK_LAUNCH = True
+
 # Run project updates with extra verbosity
 PROJECT_UPDATE_VVV = False
 

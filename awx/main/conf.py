@@ -470,6 +470,19 @@ register(
 )
 
 register(
+    'ALLOW_DIRECT_PLAYBOOK_LAUNCH',
+    field_class=fields.BooleanField,
+    default=True,
+    label=_('Allow Running Playbooks Directly From Projects'),
+    help_text=_(
+        'Allows users to run a playbook of a project without a job template (POST /api/v2/projects/N/launch_playbook/). '
+        'Users need use permission on the project, inventory and credentials, the same as for creating a job template from them.'
+    ),
+    category=_('Jobs'),
+    category_slug='jobs',
+)
+
+register(
     'AWX_SHOW_PLAYBOOK_LINKS',
     field_class=fields.BooleanField,
     default=False,
