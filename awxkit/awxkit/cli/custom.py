@@ -169,6 +169,13 @@ class ProjectUpdate(Launchable, CustomAction):
     resource = 'projects'
 
 
+class ProjectLaunchPlaybook(Launchable, CustomAction):
+    """Belfry: awx projects launch_playbook <project> --playbook x.yml --inventory <id> ..."""
+
+    action = 'launch_playbook'
+    resource = 'projects'
+
+
 class ProjectCreate(CustomAction):
     action = 'create'
     resource = 'projects'
