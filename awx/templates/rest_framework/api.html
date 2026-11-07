@@ -7,6 +7,7 @@
 {% block style %}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
+  <script>try { var t = localStorage.getItem('belfry-api-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
   <link href="{% static 'media/favicon.ico' %}?v={{ tower_version }}" rel="shortcut icon" />
   {% is_proxied_request as proxied %}
   {% if proxied %}
@@ -23,18 +24,38 @@
 <body class="{% block bodyclass %}{% endblock %}">
 {% block navbar %}
 <header class="topbar">
-  <a class="brand" href="{% url 'api:api_root_view' %}"><img src="{% static 'belfry-icon.svg' %}" alt="" width="26" height="26"><span>Belfry</span> <span class="brand-sub">{% trans 'REST API' %}</span></a>
+  <a class="brand" href="{% url 'api:api_root_view' %}" title="{% trans 'Belfry REST API' %}"><img src="{% static 'belfry-icon.svg' %}" alt="" width="24" height="24"><span>Belfry</span></a>
   <nav class="toplinks" aria-label="{% trans 'API links' %}">
-    <a href="/api/v2/docs/">{% trans 'API explorer' %}</a>
-    <a href="https://belfry-project.github.io/docs/belfry/rest_api/index.html" target="_blank" rel="noopener">{% trans 'API guide' %}</a>
-    <a href="/">{% trans 'Web UI' %}</a>
-    {% if user.is_authenticated and not inside_login_context %}
-    <a class="user" href="{% url 'api:user_me_list' version='v2' %}" title="{% trans 'Logged in as' %} {{ user }}{% if user.get_full_name %} ({{ user.get_full_name }}){% endif %}">{{ user }}</a>
-    <a href="{% url 'api:logout' %}?next=/api/login/">{% trans 'Log out' %}</a>
-    {% elif not inside_login_context %}
-    <a class="login" href="{% url 'api:login' %}?next={{ request.get_full_path|urlencode }}">{% trans 'Log in' %}</a>
-    {% endif %}
+    <a href="{% url 'api:api_root_view' %}"><span class="ico" aria-hidden="true">&#8962;</span>{% trans 'API root' %}</a>
+    <a href="/api/v2/docs/"><span class="ico" aria-hidden="true">&#10070;</span>{% trans 'API explorer' %}</a>
+    <a href="https://belfry-project.github.io/docs/belfry/rest_api/index.html" target="_blank" rel="noopener"><span class="ico" aria-hidden="true">?</span>{% trans 'API guide' %}</a>
+    <a href="/"><span class="ico" aria-hidden="true">&#8594;</span>{% trans 'Web UI' %}</a>
   </nav>
+  <div class="menus">
+    {% if not inside_login_context %}
+    <details class="menu" id="account-menu">
+      <summary>{% if user.is_authenticated %}<span class="dot" aria-hidden="true"></span>{{ user }}{% else %}{% trans 'Account' %}{% endif %}</summary>
+      <div class="menu-list">
+        {% if user.is_authenticated %}
+        <span class="menu-note">{% trans 'Logged in as' %} <b>{{ user }}</b>{% if user.get_full_name %} ({{ user.get_full_name }}){% endif %}</span>
+        <a href="{% url 'api:user_me_list' version='v2' %}">{% trans 'My user' %}</a>
+        <a href="{% url 'api:logout' %}?next=/api/login/">{% trans 'Log out' %}</a>
+        {% else %}
+        <span class="menu-note">{% trans 'Not logged in' %}</span>
+        <a class="login" href="{% url 'api:login' %}?next={{ request.get_full_path|urlencode }}">{% trans 'Log in' %}</a>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+    <details class="menu" id="theme-menu">
+      <summary>{% trans 'Theme' %}</summary>
+      <div class="menu-list">
+        <button type="button" data-theme-set="light">{% trans 'Light' %}</button>
+        <button type="button" data-theme-set="dark">{% trans 'Dark' %}</button>
+        <button type="button" data-theme-set="auto">{% trans 'Auto (system)' %}</button>
+      </div>
+    </details>
+  </div>
 </header>
 {% endblock %}
 
@@ -52,25 +73,7 @@
   <div class="notice warning"><b>{% trans 'This resource has been deprecated and will be removed in a future release.' %}</b></div>
   {% endif %}
 
-  <div class="title-row">
-    <h1>{{ name }}</h1>
-    <div class="actions">
-      {% if 'GET' in allowed_methods %}
-      <a class="btn" href="{{ request.get_full_path }}" rel="nofollow" title="{% trans 'Make a GET request' %}">GET</a>
-      <a class="btn secondary" href="{% add_query_param request 'format' 'json' %}" rel="nofollow" title="{% trans 'Show the response as plain JSON' %}">JSON</a>
-      {% endif %}
-      {% if options_form %}
-      <form class="inline" action="{{ request.get_full_path }}" data-method="OPTIONS"><button class="btn secondary" title="{% trans 'Make an OPTIONS request: fields and actions of this resource' %}">OPTIONS</button></form>
-      {% endif %}
-      {% if delete_form %}
-      <form class="inline" action="{{ request.get_full_path }}" data-method="DELETE" data-confirm="{% blocktrans %}Delete this {{ name }}?{% endblocktrans %}"><button class="btn danger" title="{% trans 'Make a DELETE request' %}">DELETE</button></form>
-      {% endif %}
-      {% if extra_actions %}
-        {% for action_name, url in extra_actions|items %}<a class="btn secondary" href="{{ url }}">{{ action_name }}</a>{% endfor %}
-      {% endif %}
-    </div>
-  </div>
-
+  <h1>{{ name }}</h1>
   {% if description %}
   <details class="description">
     <summary>{% trans 'Description' %}</summary>
@@ -78,55 +81,83 @@
   </details>
   {% endif %}
 
-  <section class="request-info" aria-label="{% trans 'Request' %}">
-    <span class="method method-{{ request.method|lower }}">{{ request.method }}</span> <code>{{ request.get_full_path }}</code>
-  </section>
-
-  <section class="response-info" aria-label="{% trans 'Response' %}">
-    <div class="meta">
-      <span class="status status-{{ response.status_code|stringformat:'s'|slice:':1' }}xx">HTTP {{ response.status_code }} {{ response.status_text }}</span>
-      <details class="headers"><summary>{% trans 'Headers' %}</summary>
-        <dl>{% for key, val in response_headers|items %}<dt>{{ key }}</dt><dd>{{ val }}</dd>{% endfor %}</dl>
+  <div class="actions">
+    {% if 'GET' in allowed_methods %}
+    <span class="split">
+      <a class="btn m-get" href="{{ request.get_full_path }}" rel="nofollow" title="{% trans 'Make a GET request' %}">&#8635; GET</a><details class="menu split-menu"><summary class="btn m-get" title="{% trans 'Choose a format' %}"><span class="sr-only">{% trans 'Formats' %}</span></summary>
+        <div class="menu-list">{% for format in available_formats %}<a href="{% add_query_param request 'format' format %}" rel="nofollow">{{ format }}</a>{% endfor %}</div>
       </details>
-      <span class="tools">
-        <button type="button" class="link" data-tree="expand">{% trans 'Expand all' %}</button>
-        <button type="button" class="link" data-tree="collapse">{% trans 'Collapse all' %}</button>
-        <button type="button" class="link" data-tree="raw">{% trans 'Raw' %}</button>
-      </span>
+    </span>
+    {% endif %}
+    {% if options_form %}
+    <form class="inline" action="{{ request.get_full_path }}" data-method="OPTIONS"><button class="btn m-options" title="{% trans 'Make an OPTIONS request: fields and actions of this resource' %}">&#9432; OPTIONS</button></form>
+    {% endif %}
+    {% if delete_form %}
+    <form class="inline" action="{{ request.get_full_path }}" data-method="DELETE" data-confirm="{% blocktrans %}Delete this {{ name }}?{% endblocktrans %}"><button class="btn m-delete" title="{% trans 'Make a DELETE request' %}">&#10005; DELETE</button></form>
+    {% endif %}
+    {% if extra_actions %}
+    <details class="menu"><summary class="btn m-extra">{% trans 'Extra actions' %}</summary>
+      <div class="menu-list">{% for action_name, url in extra_actions|items %}<a href="{{ url }}">{{ action_name }}</a>{% endfor %}</div>
+    </details>
+    {% endif %}
+    {% if filter_form %}
+    <button type="button" class="btn m-filter" data-dialog="filters-dialog">{% trans 'Filters' %}</button>
+    {% endif %}
+  </div>
+
+  <div class="columns{% if display_edit_forms and raw_data_post_form or display_edit_forms and raw_data_put_or_patch_form %} with-form{% endif %}">
+  <section class="response-info card" aria-label="{% trans 'Response' %}">
+    <div class="request-info"><span class="method method-{{ request.method|lower }}">{{ request.method }}</span> <code>{{ request.get_full_path }}</code></div>
+    <div class="meta">
+      <div class="status-line"><span class="status status-{{ response.status_code|stringformat:'s'|slice:':1' }}xx">HTTP {{ response.status_code }} {{ response.status_text }}</span>
+        <span class="tools">
+          <button type="button" class="link" data-tree="expand">{% trans 'Expand all' %}</button>
+          <button type="button" class="link" data-tree="collapse">{% trans 'Collapse all' %}</button>
+          <button type="button" class="link" data-tree="raw">{% trans 'Raw' %}</button>
+        </span>
+      </div>
+      <dl class="headers">{% for key, val in response_headers|items %}<dt>{{ key }}:</dt><dd>{{ val }}</dd>{% endfor %}</dl>
     </div>
     {% if paginator %}<nav class="pagination-nav">{% get_pagination_html paginator %}</nav>{% endif %}
     <pre class="content" id="response-content">{{ content }}</pre>
   </section>
 
   {% if display_edit_forms %}
+  {% if raw_data_post_form or raw_data_put_or_patch_form %}
+  <aside class="form-column">
     {% if raw_data_post_form %}
-    <section class="form-card">
-      <h2>POST</h2>
+    <section class="form-card card">
       {% with form=raw_data_post_form %}
-      <form action="{{ request.get_full_path }}" method="POST" data-method="POST">
-        {% include "rest_framework/raw_data_form.html" %}
-        <div class="form-actions"><button class="btn" title="{% trans 'Make a POST request' %}">POST</button></div>
+      <form action="{{ request.get_full_path }}" method="POST" data-method="POST" class="data-form">
+        <div class="pills" role="tablist"><button type="button" class="pill active" data-view="form">{% trans 'HTML form' %}</button><button type="button" class="pill" data-view="raw">{% trans 'Raw data' %}</button></div>
+        <div class="form-fields" hidden></div>
+        <div class="raw-fields">{% include "rest_framework/raw_data_form.html" %}</div>
+        <button class="btn m-post wide" title="{% trans 'Make a POST request' %}">&#10148; POST</button>
       </form>
       {% endwith %}
     </section>
     {% endif %}
     {% if raw_data_put_or_patch_form %}
-    <section class="form-card">
-      <h2>{% if raw_data_put_form %}PUT{% endif %}{% if raw_data_put_form and raw_data_patch_form %} / {% endif %}{% if raw_data_patch_form %}PATCH{% endif %}</h2>
+    <section class="form-card card">
       {% with form=raw_data_put_or_patch_form %}
-      <form action="{{ request.get_full_path }}" data-method="PUT">
-        {% include "rest_framework/raw_data_form.html" %}
-        <div class="form-actions">
-          {% if raw_data_put_form %}<button class="btn" data-method="PUT" title="{% trans 'Replace the resource (PUT)' %}">PUT</button>{% endif %}
-          {% if raw_data_patch_form %}<button class="btn" data-method="PATCH" title="{% trans 'Change only the given fields (PATCH)' %}">PATCH</button>{% endif %}
-        </div>
+      <form action="{{ request.get_full_path }}" data-method="PUT" class="data-form">
+        <div class="pills" role="tablist"><button type="button" class="pill active" data-view="form">{% trans 'HTML form' %}</button><button type="button" class="pill" data-view="raw">{% trans 'Raw data' %}</button></div>
+        <div class="form-fields" hidden></div>
+        <div class="raw-fields">{% include "rest_framework/raw_data_form.html" %}</div>
+        {% if raw_data_patch_form %}<button class="btn m-patch wide" data-method="PATCH" title="{% trans 'Change only the given fields (PATCH)' %}">PATCH</button>{% endif %}
+        {% if raw_data_put_form %}<button class="btn m-put wide secondary" data-method="PUT" title="{% trans 'Replace the resource (PUT)' %}">PUT</button>{% endif %}
       </form>
       {% endwith %}
     </section>
     {% endif %}
+  </aside>
   {% endif %}
+  {% endif %}
+  </div>
   {% endblock content %}
 </main>
+
+{% if filter_form %}<dialog id="filters-dialog" class="card">{{ filter_form }}<form method="dialog"><button class="btn secondary">{% trans 'Close' %}</button></form></dialog>{% endif %}
 
 {% block script %}
 <script type="application/json" id="drf_csrf">
