@@ -156,3 +156,92 @@ def test_relaunch_and_cancel(post, get, project, inventory, machine_credential, 
     with override_settings(ALLOW_DIRECT_PLAYBOOK_LAUNCH=False):
         inventory.use_role.members.add(launcher)
         post(reverse('api:job_relaunch', kwargs={'pk': job.pk}), {}, launcher, expect=403)
+
+
+@pytest.mark.django_db
+def test_relaunch_keeps_instance_groups(post, project, inventory, machine_credential, launcher, instance_group, default_instance_group):
+    instance_group.use_role.members.add(launcher)
+    r = post(url(project), payload(inventory, machine_credential, instance_groups=[instance_group.pk]), launcher, expect=201)
+    job = Job.objects.get(pk=r.data['job'])
+    assert job.preferred_instance_groups_cache == [instance_group.pk]
+    assert job.direct_launch_instance_groups() == [instance_group]
+    r = post(reverse('api:job_relaunch', kwargs={'pk': job.pk}), {}, launcher, expect=201)
+    relaunched = Job.objects.get(pk=r.data['id'])
+    assert relaunched.preferred_instance_groups_cache == [instance_group.pk]
+    # and again from the relaunched job
+    r = post(reverse('api:job_relaunch', kwargs={'pk': relaunched.pk}), {}, launcher, expect=201)
+    assert Job.objects.get(pk=r.data['id']).preferred_instance_groups_cache == [instance_group.pk]
+    # relaunch needs use on the instance group, like launching
+    instance_group.use_role.members.remove(launcher)
+    post(reverse('api:job_relaunch', kwargs={'pk': job.pk}), {}, launcher, expect=403)
+
+
+@pytest.mark.django_db
+def test_relaunch_without_instance_groups_uses_defaults(post, project, inventory, machine_credential, launcher, instance_group, default_instance_group):
+    r = post(url(project), payload(inventory, machine_credential), launcher, expect=201)
+    job = Job.objects.get(pk=r.data['job'])
+    assert job.direct_launch_instance_groups() == []
+    inventory.instance_groups.add(instance_group)  # defaults are computed again on relaunch
+    r = post(reverse('api:job_relaunch', kwargs={'pk': job.pk}), {}, launcher, expect=201)
+    assert Job.objects.get(pk=r.data['id']).preferred_instance_groups_cache[0] == instance_group.pk
+
+
+def jt_url(job):
+    return reverse('api:job_create_job_template', kwargs={'pk': job.pk})
+
+
+@pytest.mark.django_db
+def test_create_job_template_from_job(post, get, project, inventory, machine_credential, launcher, instance_group):
+    from awx.main.models import JobTemplate
+
+    instance_group.use_role.members.add(launcher)
+    data = payload(inventory, machine_credential, limit='web', extra_vars={'a': 1}, job_type='check', verbosity=2, instance_groups=[instance_group.pk])
+    job = Job.objects.get(pk=post(url(project), data, launcher, expect=201).data['job'])
+    r = get(reverse('api:job_detail', kwargs={'pk': job.pk}), launcher, expect=200)
+    assert r.data['related']['create_job_template'] == jt_url(job)
+    assert get(jt_url(job), launcher, expect=200).data['can_create_job_template'] is True
+
+    post(jt_url(job), {}, launcher, expect=400)  # name is required
+    r = post(jt_url(job), {'name': 'saved run', 'description': 'from a direct run'}, launcher, expect=201)
+    jt = JobTemplate.objects.get(pk=r.data['id'])
+    assert (jt.name, jt.description, jt.project, jt.inventory, jt.playbook) == ('saved run', 'from a direct run', project, inventory, 'helloworld.yml')
+    assert (jt.limit, jt.job_type, jt.verbosity, jt.organization) == ('web', 'check', 2, project.organization)
+    assert jt.extra_vars_dict == {'a': 1}
+    assert list(jt.credentials.all()) == [machine_credential]
+    assert list(jt.instance_groups.all()) == [instance_group]
+    # the creator administers the new template, which can be launched and scheduled
+    assert launcher in jt.admin_role
+    assert ActivityStream.objects.filter(job_template=jt, operation='create').exists()
+    # the template name must be unique in the organization
+    r = post(jt_url(job), {'name': 'saved run'}, launcher, expect=400)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('missing', ['project', 'inventory', 'credential', 'instance_group'])
+def test_create_job_template_permission(post, project, inventory, machine_credential, launcher, instance_group, missing, org_admin):
+    from awx.main.models import JobTemplate
+
+    instance_group.use_role.members.add(launcher)
+    job = Job.objects.get(pk=post(url(project), payload(inventory, machine_credential, instance_groups=[instance_group.pk]), launcher, expect=201).data['job'])
+    if missing == 'project':
+        project.use_role.members.remove(launcher)
+    elif missing == 'inventory':
+        inventory.use_role.members.remove(launcher)
+    elif missing == 'credential':
+        machine_credential.use_role.members.remove(launcher)
+    else:
+        instance_group.use_role.members.remove(launcher)
+    post(jt_url(job), {'name': 'x'}, launcher, expect=403)
+    assert not JobTemplate.objects.exists()
+
+
+@pytest.mark.django_db
+def test_create_job_template_only_for_direct_runs(post, get, job_template, admin_user, alice, project, inventory, machine_credential, launcher):
+    job = job_template.create_unified_job()
+    assert 'create_job_template' not in get(reverse('api:job_detail', kwargs={'pk': job.pk}), admin_user, expect=200).data['related']
+    assert get(jt_url(job), admin_user, expect=200).data['can_create_job_template'] is False
+    r = post(jt_url(job), {'name': 'x'}, admin_user, expect=400)
+    assert 'directly' in str(r.data['detail'])
+    # a user who cannot see the job cannot save it
+    direct = post(url(project), payload(inventory, machine_credential), launcher, expect=201).data['job']
+    post(reverse('api:job_create_job_template', kwargs={'pk': direct}), {'name': 'x'}, alice, expect=403)

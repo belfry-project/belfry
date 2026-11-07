@@ -18,6 +18,7 @@ from awx.api.views import (
     JobLabelList,
     JobHostSummaryDetail,
 )
+from awx.api.views.project_launch_playbook import JobCreateJobTemplate
 
 urls = [
     re_path(r'^$', JobList.as_view(), name='job_list'),
@@ -25,6 +26,7 @@ urls = [
     re_path(r'^(?P<pk>[0-9]+)/cancel/$', JobCancel.as_view(), name='job_cancel'),
     re_path(r'^(?P<pk>[0-9]+)/relaunch/$', JobRelaunch.as_view(), name='job_relaunch'),
     re_path(r'^(?P<pk>[0-9]+)/create_schedule/$', JobCreateSchedule.as_view(), name='job_create_schedule'),
+    re_path(r'^(?P<pk>[0-9]+)/create_job_template/$', JobCreateJobTemplate.as_view(), name='job_create_job_template'),
     re_path(r'^(?P<pk>[0-9]+)/job_host_summaries/$', JobJobHostSummariesList.as_view(), name='job_job_host_summaries_list'),
     re_path(r'^(?P<pk>[0-9]+)/job_events/$', JobJobEventsList.as_view(), name='job_job_events_list'),
     re_path(r'^(?P<pk>[0-9]+)/job_events/children_summary/$', JobJobEventsChildrenSummary.as_view(), name='job_job_events_children_summary'),

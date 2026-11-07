@@ -95,6 +95,7 @@ class Resources(object):
     _job = r'jobs/\d+/'
     _job_cancel = r'jobs/\d+/cancel/'
     _job_create_schedule = r'jobs/\d+/create_schedule/'
+    _job_create_job_template = r'jobs/\d+/create_job_template/'
     _job_event = r'job_events/\d+/'
     _job_event_children = r'job_events/\d+/children/'
     _job_events = 'job_events/'

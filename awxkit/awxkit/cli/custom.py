@@ -176,6 +176,23 @@ class ProjectLaunchPlaybook(Launchable, CustomAction):
     resource = 'projects'
 
 
+class JobCreateJobTemplate(CustomAction):
+    """Belfry: awx jobs create_job_template <job id> --name <name> [--description <text>]"""
+
+    action = 'create_job_template'
+    resource = 'jobs'
+
+    def add_arguments(self, parser, resource_options_parser):
+        from .options import pk_or_name
+
+        parser.choices[self.action].add_argument('id', type=functools.partial(pk_or_name, None, self.resource, page=self.page), help='')
+        parser.choices[self.action].add_argument('--name', required=True, help='Name of the new job template.')
+        parser.choices[self.action].add_argument('--description', help='Description of the new job template.')
+
+    def perform(self, **kwargs):
+        return self.page.get().related.create_job_template.post(kwargs)
+
+
 class ProjectCreate(CustomAction):
     action = 'create'
     resource = 'projects'

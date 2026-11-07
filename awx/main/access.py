@@ -1427,6 +1427,14 @@ class ProjectAccess(NotificationAttachMixin, BaseAccess):
             self.check_license()
             if inventory:
                 self.check_org_host_limit({'inventory': inventory})
+        return self.can_add_job_template_from(obj, data)
+
+    def can_add_job_template_from(self, obj, data):
+        """
+        Belfry: whether the user may create a job template from this project and the
+        resources in data (as in can_launch_playbook), also when saving a job that ran
+        a playbook directly as a job template.
+        """
         if self.user.is_superuser:
             return True
 
@@ -1776,7 +1784,12 @@ class JobAccess(BaseAccess):
         if not obj.job_template and obj.project and settings.ALLOW_DIRECT_PLAYBOOK_LAUNCH:
             if obj.created_by_id != self.user.pk and vars_are_encrypted(obj.extra_vars_dict):
                 raise PermissionDenied(_('Job was launched with secret variables provided by another user.'))
-            direct_data = dict(inventory=obj.inventory, credentials=list(obj.credentials.all()), execution_environment=obj.execution_environment)
+            direct_data = dict(
+                inventory=obj.inventory,
+                credentials=list(obj.credentials.all()),
+                execution_environment=obj.execution_environment,
+                instance_groups=obj.direct_launch_instance_groups(),
+            )
             if ProjectAccess(self.user).can_launch_playbook(obj.project, direct_data, validate_license=False):
                 return True
 
@@ -1791,6 +1804,26 @@ class JobAccess(BaseAccess):
             raise PermissionDenied(_('Job was launched with unknown prompted fields. Organization admin permissions required.'))
 
         return False
+
+    def can_create_job_template(self, obj):
+        """
+        Belfry: save a job that ran a playbook directly (no job template) as a job template.
+        Needs the access to create a job template from the job's project, inventory,
+        execution environment, credentials and instance groups.
+        """
+        if obj.job_template_id or not obj.project:
+            return False
+        data = dict(
+            inventory=obj.inventory,
+            credentials=list(obj.credentials.all()),
+            execution_environment=obj.execution_environment,
+            instance_groups=obj.direct_launch_instance_groups(),
+        )
+        project_access = ProjectAccess(self.user, save_messages=self.save_messages)
+        allowed = project_access.can_add_job_template_from(obj.project, data)
+        if self.save_messages:
+            self.messages.update(project_access.messages)
+        return allowed
 
     def get_method_capability(self, method, obj, parent_obj):
         if method == 'start':

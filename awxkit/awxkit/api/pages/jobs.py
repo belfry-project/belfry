@@ -95,3 +95,12 @@ class JobStdout(base.Base):
 
 
 page.register_page(resources.related_stdout, JobStdout)
+
+
+class JobCreateJobTemplate(base.Base):
+    """Belfry: save a job that ran a playbook directly as a job template (POST returns the template)"""
+
+    pass
+
+
+page.register_page(resources.job_create_job_template, JobCreateJobTemplate)

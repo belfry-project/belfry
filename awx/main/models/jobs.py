@@ -665,12 +665,29 @@ class Job(UnifiedJob, JobOptions, SurveyJobMixin, JobNotificationMixin, TaskMana
                     new_prompts['_eager_fields'][field_name] = new_prompts.pop(field_name)
         job = super(Job, self).copy_unified_job(**new_prompts)
         if self.job_template_id is None:
-            # Belfry: the field by field copy skips what create_unified_job computes
-            job.preferred_instance_groups_cache = job._get_preferred_instance_group_cache()
+            # Belfry: the field by field copy skips what create_unified_job computes;
+            # instance groups given at launch are kept in the launch config, like prompts of a template
+            instance_groups = self.direct_launch_instance_groups()
+            job.save_direct_launch_instance_groups(instance_groups)
+            job.preferred_instance_groups_cache = [ig.pk for ig in instance_groups] or job._get_preferred_instance_group_cache()
             job._set_default_dependencies_processed()
             job.task_impact = job._get_task_impact()
             job.save(update_fields=['preferred_instance_groups_cache', 'dependencies_processed', 'task_impact'])
         return job
+
+    def direct_launch_instance_groups(self):
+        """Belfry: instance groups given when the playbook was run directly (job without template)"""
+        config = getattr(self, 'launch_config', None)
+        if self.job_template_id is not None or config is None:
+            return []
+        return list(config.instance_groups.all())
+
+    def save_direct_launch_instance_groups(self, instance_groups):
+        """Belfry: keep the instance groups given when running a playbook directly, for relaunch"""
+        if instance_groups:
+            config = JobLaunchConfig.objects.create(job=self)
+            for instance_group in instance_groups:  # one by one to keep the order
+                config.instance_groups.add(instance_group)
 
     def get_passwords_needed_to_start(self):
         return self.passwords_needed_to_start
