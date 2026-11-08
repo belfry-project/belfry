@@ -24,6 +24,7 @@ action_groups:
     - inventory_source
     - inventory_source_update
     - job_cancel
+    - job_create_template
     - job_launch
     - job_list
     - job_template

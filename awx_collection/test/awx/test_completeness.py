@@ -33,6 +33,7 @@ no_endpoint_for_module = [
     'inventory_source_update',
     'job_launch',
     'playbook_launch',
+    'job_create_template',
     'job_wait',
     'host_overview',
     'job_list',
