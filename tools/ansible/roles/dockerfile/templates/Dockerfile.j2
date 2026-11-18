@@ -221,12 +221,20 @@ RUN openssl req -nodes -newkey rsa:2048 -keyout /etc/nginx/nginx.key -out /etc/n
 {% endif %}
 
 {% if build_dev|bool %}
-RUN dnf install -y podman fuse-overlayfs slirp4netns && rpm --restore shadow-utils 2>/dev/null
+RUN dnf install -y podman fuse-overlayfs passt && rpm --restore shadow-utils 2>/dev/null
 
 # chmod containers.conf and adjust storage.conf to enable Fuse storage.
 # EL 10 ships the default storage.conf in /usr/share/containers only.
 RUN test -f /etc/containers/storage.conf || cp /usr/share/containers/storage.conf /etc/containers/storage.conf
-RUN sed -i -e 's|^#mount_program|mount_program|g' -e '/additionalimage.*/a "/var/lib/shared",' -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' /etc/containers/storage.conf
+# containers-common 6 ships additionalimagestores commented out ("# additionalimagestores = []")
+# instead of as an empty array: handle both layouts, and fail the build if the result is not valid
+# TOML, as podman then refuses to start (ansible-runner reports "Unable to find process isolation
+# executable: podman").
+RUN sed -i -e 's|^#mount_program|mount_program|g' \
+        -e '/^additionalimagestores = \[$/a "/var/lib/shared",' \
+        -e 's|^# *additionalimagestores = \[\]$|additionalimagestores = ["/var/lib/shared"]|' \
+        -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' /etc/containers/storage.conf && \
+    python3.14 -c 'import tomllib; o = tomllib.load(open("/etc/containers/storage.conf", "rb"))["storage"]["options"]; assert "/var/lib/shared" in o["additionalimagestores"], o'
 
 ENV _CONTAINERS_USERNS_CONFIGURED=""
 
