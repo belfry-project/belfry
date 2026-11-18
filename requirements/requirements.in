@@ -1,4 +1,4 @@
-aiohttp>=3.14.3
+aiohttp>=3.14.4 # CVE-2026-111064
 ansi2html  # Used to format the stdout from jobs into html for display
 jq  # used for indirect host counting feature
 asn1
@@ -48,7 +48,7 @@ pexpect
 prometheus-client
 psycopg
 psutil
-pyasn1>=0.6.2  # CVE-2026-2349
+pyasn1>=0.6.4  # CVE-2026-59886
 pygerduty
 PyGithub
 PyJWT>=2.14.0  # CVE-2026-102268
@@ -60,7 +60,7 @@ python-tss-sdk>=1.2.1
 pyyaml>=6.0.2  # require packing fix for cython 3 or higher
 pyzstd  # otel collector log file compression library
 receptorctl
-sqlparse>=0.6.0   # CVE-2026-59893
+sqlparse>=0.6.1
 redis[hiredis]>=7.0  # requires 7.0+ for retry functionality on connection errors
 requests
 slack-sdk
