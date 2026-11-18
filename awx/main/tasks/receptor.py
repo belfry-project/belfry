@@ -203,6 +203,41 @@ def get_receptor_ctl(config_data=None):
         return ReceptorControl(receptor_sockfile)
 
 
+class ReceptorWork:
+    """The receptor work-unit operations AWX uses after a job is submitted.
+
+    Streaming results, reading status, canceling and releasing go through this class
+    instead of raw receptorctl commands, so a test can stand in a fake work unit
+    (see awx.main.tests.fake_receptor) and drive the real streaming, adoption and
+    finalize code without a receptor mesh.
+    """
+
+    def __init__(self, receptor_ctl):
+        self.receptor_ctl = receptor_ctl
+
+    def list(self):
+        return self.receptor_ctl.simple_command('work list')
+
+    def status(self, unit_id):
+        return self.receptor_ctl.simple_command(f'work status {unit_id}')
+
+    def results(self, unit_id, startpos=None):
+        """Return (socket, file) streaming the unit's ansible-runner output."""
+        kwargs = {'return_socket': True, 'return_sockfile': True}
+        if startpos is not None:
+            kwargs['startpos'] = startpos
+        return self.receptor_ctl.get_work_results(unit_id, **kwargs)
+
+    def cancel(self, unit_id):
+        return self.receptor_ctl.simple_command(f'work cancel {unit_id}')
+
+    def release(self, unit_id):
+        return self.receptor_ctl.simple_command(f'work release {unit_id}')
+
+    def close(self):
+        self.receptor_ctl.close()
+
+
 def adopt_remote_work(receptor_ctl, node, unit_id, config_data=None):
     """Adopt a running work unit from a remote node, passing TLS/signwork when configured.
 
@@ -255,6 +290,50 @@ def get_conn_type(node_name, receptor_ctl):
     return ReceptorConnectionType(node.get('ConnType'))
 
 
+def release_work_unit(receptor_ctl, unit_id, work_list):
+    """Release one work unit, force-releasing it when the remote side is gone.
+
+    ``work release`` fails differently depending on which side is missing. A plain
+    "unknown work unit" comes from the local lookup, so the proxy directory is
+    already gone and there is nothing to clean up. "error cancelling remote unit:
+    unknown work unit" means the local proxy still exists but the remote side is
+    gone; only then is the stale local directory removed with
+    ``work force-release``. The wire command is ``work force-release <unit>``
+    (the receptorctl ``--force`` flag maps to it). Other release failures are
+    left alone so a later pass can retry.
+    """
+    try:
+        receptor_ctl.simple_command(f"work release {unit_id}")
+        return True
+    except Exception as exc:
+        # Receptor reports the same "unknown work unit" text for both sides, so
+        # classify with the typed prefixes used by FuzzyError. Check the
+        # cancel/remote prefix first: it also contains "unknown work unit".
+        message = str(exc)
+        if message.startswith(WorkUnitCancelError._MESSAGE):
+            # The local proxy remains but the remote unit is gone: drop the proxy.
+            logger.warning(f"Work unit {unit_id} is gone remotely; force-releasing the local proxy")
+        elif message.startswith(WorkUnitError._MESSAGE):
+            # The local unit disappeared between listing and release; force-release
+            # would fail the same way, so treat it as already cleaned up.
+            logger.debug(f"Work unit {unit_id} is already gone locally; nothing to release")
+            return True
+        else:
+            # A transient failure must leave both sides alone so a later pass can
+            # retry, otherwise ``force-release`` orphans the remote unit's files.
+            logger.warning(f"Error releasing work unit {unit_id}", exc_info=True)
+            return False
+
+    if unit_id in work_list:
+        try:
+            receptor_ctl.simple_command(f"work force-release {unit_id}")
+            return True
+        except Exception:
+            logger.warning(f"Error force-releasing work unit {unit_id}", exc_info=True)
+
+    return False
+
+
 def administrative_workunit_reaper(work_list=None):
     """
     This releases completed work units that were spawned by actions inside of this module
@@ -264,9 +343,17 @@ def administrative_workunit_reaper(work_list=None):
     These should ordinarily be released when the method finishes, but this is a
     cleanup of last-resort, in case something went awry
     """
-    receptor_ctl = get_receptor_ctl()
+    try:
+        receptor_ctl = get_receptor_ctl()
+    except FileNotFoundError:
+        logger.info('Receptorctl sockfile not found for administrative workunit reaper, doing nothing')
+        return
     if work_list is None:
-        work_list = receptor_ctl.simple_command("work list")
+        try:
+            work_list = receptor_ctl.simple_command("work list")
+        except Exception:
+            logger.exception('Error getting work list for administrative workunit reaper')
+            return
 
     for unit_id, work_data in work_list.items():
         extra_data = work_data.get('ExtraData')
@@ -286,7 +373,7 @@ def administrative_workunit_reaper(work_list=None):
             if work_data.get('StateName') in RECEPTOR_ACTIVE_STATES:
                 continue  # do not want to touch active work units
             logger.info(f'Reaping orphaned work unit {unit_id} with params {params}')
-        receptor_ctl.simple_command(f"work release {unit_id}")
+        release_work_unit(receptor_ctl, unit_id, work_list)
 
 
 class RemoteJobError(RuntimeError):
@@ -468,7 +555,7 @@ class AWXReceptorJob:
         self.receptor_ctl = get_receptor_ctl(self.config_data)
         return self._run_internal(self.receptor_ctl)
 
-    def _receptor_release_work(self, receptor_ctl: ReceptorControl, status: str) -> None:
+    def _receptor_release_work(self, work: ReceptorWork, status: str) -> None:
         if self.unit_id is None:
             return
 
@@ -479,14 +566,15 @@ class AWXReceptorJob:
             return
 
         try:
-            receptor_ctl.simple_command(f"work release {self.unit_id}")
+            work.release(self.unit_id)
             logger.debug(f"Released work unit {self.unit_id}.")
         except Exception:
             logger.exception(f"Error releasing work unit {self.unit_id}.")
 
     def _run_internal(self, receptor_ctl):
+        self.work = ReceptorWork(receptor_ctl)
         self._transmit_phase(receptor_ctl)
-        return self._process_phase(receptor_ctl)
+        return self._process_phase(self.work)
 
     def _transmit_phase(self, receptor_ctl):
         """Submit work to receptor and wait for the transmit thread to finish.
@@ -548,7 +636,33 @@ class AWXReceptorJob:
         if self.work_type != 'local' and os.path.exists(artifact_dir):
             shutil.rmtree(artifact_dir)
 
-    def _process_phase(self, receptor_ctl):
+    @staticmethod
+    def _close_results(resultsock, resultfile):
+        """Best-effort teardown of the Receptor results stream.
+
+        The controller must stop reading and close the stream before ``work
+        release`` can remove the unit directory on the Receptor side. Otherwise
+        an in-flight stdout reader or status writer races the removal.
+        Safe to call more than once: shutting down an already
+        closed socket raises OSError/ENOTCONN, which is swallowed.
+        """
+        if resultsock is not None:
+            try:
+                resultsock.shutdown(socket.SHUT_RDWR)
+            except (OSError, ValueError):
+                pass
+        if resultfile is not None:
+            try:
+                resultfile.close()
+            except (OSError, ValueError):
+                pass
+        if resultsock is not None:
+            try:
+                resultsock.close()
+            except (OSError, ValueError):
+                pass
+
+    def _process_phase(self, work: ReceptorWork):
         """Stream events from the receptor work unit via the ansible-runner process streamer.
 
         Extracted from _run_internal() so it can be called standalone for job adoption
@@ -558,7 +672,7 @@ class AWXReceptorJob:
         resultsock = None
         resultfile = None
         try:
-            resultsock, resultfile = receptor_ctl.get_work_results(self.unit_id, return_socket=True, return_sockfile=True)
+            resultsock, resultfile = work.results(self.unit_id)
         except Exception:
             logger.exception(f'Failed to get work results for unit {self.unit_id}')
             raise
@@ -569,35 +683,43 @@ class AWXReceptorJob:
         # If a cancel happens, the main thread will encounter an exception, in which case
         # we yank the socket out from underneath the processor, which will cause it to exit.
         # The ThreadPoolExecutor context manager ensures we do not leave any threads laying around.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            processor_future = executor.submit(self.processor, resultfile)
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                processor_future = executor.submit(self.processor, resultfile)
 
-            try:
-                signal_state.raise_exception = True
-                # address race condition where SIGTERM was issued after this dispatcher task started
-                if signal_callback():
-                    raise SignalExit()
-                res = processor_future.result()
-            except SignalExit:
-                receptor_ctl.simple_command(f"work cancel {self.unit_id}")
-                if resultsock:
+                try:
+                    signal_state.raise_exception = True
+                    # address race condition where SIGTERM was issued after this dispatcher task started
+                    if signal_callback():
+                        raise SignalExit()
+                    res = processor_future.result()
+                except SignalExit:
                     try:
-                        resultsock.shutdown(socket.SHUT_RDWR)
-                    except Exception:
-                        pass
-                if resultfile:
-                    resultfile.close()
-                result = namedtuple('result', ['status', 'rc'])
-                res = result('canceled', 1)
-            finally:
-                signal_state.raise_exception = False
+                        work.cancel(self.unit_id)
+                    finally:
+                        # Yank the stream before the executor joins the processor.
+                        # Even if the cancel command itself fails, a processor
+                        # blocked on a slow/unreachable remote EN must not keep
+                        # the dispatcher worker waiting on the join.
+                        self._close_results(resultsock, resultfile)
+                        # The outer finally must not tear the stream down again.
+                        resultsock, resultfile = None, None
+                    result = namedtuple('result', ['status', 'rc'])
+                    res = result('canceled', 1)
+                finally:
+                    signal_state.raise_exception = False
+        finally:
+            # The executor has joined the processor thread, so nothing reads the
+            # results stream any more. Close it before the caller releases the
+            # work unit so Receptor does not race the unit-directory removal.
+            self._close_results(resultsock, resultfile)
 
-            if res.status == 'error':
-                return self._handle_work_error(receptor_ctl, res)
+        if res.status == 'error':
+            return self._handle_work_error(work, res)
 
         return res
 
-    def _handle_work_error(self, receptor_ctl, res):
+    def _handle_work_error(self, work: ReceptorWork, res):
         """Handle the error path from _process_phase when the work unit status is 'error'."""
         # If ansible-runner ran, but an error occured at runtime, the traceback information
         # is saved via the status_handler passed in to the processor.
@@ -605,7 +727,7 @@ class AWXReceptorJob:
             return res
 
         try:
-            unit_status = receptor_ctl.simple_command(f'work status {self.unit_id}')
+            unit_status = work.status(self.unit_id)
             detail = unit_status.get('Detail') or ''
             state_name = unit_status.get('StateName', None)
             stdout_size = unit_status.get('StdoutSize', 0)
@@ -629,10 +751,12 @@ class AWXReceptorJob:
                 # contain useful information about why the job failed. In case stdout is
                 # massive, only ask for last 1000 bytes
                 startpos = max(stdout_size - 1000, 0)
-                _resultsock, resultfile = receptor_ctl.get_work_results(self.unit_id, startpos=startpos, return_socket=True, return_sockfile=True)
-                lines = resultfile.readlines()
-                receptor_output = b"".join(lines).decode()
-                _resultsock.shutdown(socket.SHUT_RDWR)
+                _resultsock, resultfile = work.results(self.unit_id, startpos=startpos)
+                try:
+                    lines = resultfile.readlines()
+                    receptor_output = b"".join(lines).decode()
+                finally:
+                    self._close_results(_resultsock, resultfile)
             if receptor_output:
                 self.task.runner_callback.delay_update(result_traceback=f'Worker output:\n{receptor_output}')
             elif detail:
@@ -935,7 +1059,7 @@ def _get_or_create_private_data_dir(job):
     )
 
 
-def _finalize_adopted_job(job, callback, exit_code, process_phase_failed):
+def _finalize_adopted_job(job, callback, exit_code, process_phase_failed, clock=None):
     """Commit terminal status for an adopted job via the shared _finalize_job_run path.
 
     The shared finalization function uses duck typing to schedule task/workflow managers
@@ -951,7 +1075,7 @@ def _finalize_adopted_job(job, callback, exit_code, process_phase_failed):
         return
 
     final_status = 'successful' if exit_code == 0 else 'failed'
-    finished_at = now()
+    finished_at = (clock or now)()
     extra = {'finished': finished_at}
     if job.started:
         extra['elapsed'] = (finished_at - job.started).total_seconds()
@@ -993,7 +1117,7 @@ def _compute_adoption_dedup(job):
     return safe_threshold, collision_zone
 
 
-def reattach_to_work_unit(job, receptor_ctl):
+def reattach_to_work_unit(job, work: ReceptorWork, clock=None):
     """Reconnect to a receptor work unit and stream events in real-time until it completes.
 
     Reconstructs the minimal process-phase context from the DB job record, then calls
@@ -1008,7 +1132,7 @@ def reattach_to_work_unit(job, receptor_ctl):
 
     # Check state for logging — no longer a gate. We stream regardless.
     try:
-        unit_status = receptor_ctl.simple_command(f'work status {unit_id}')
+        unit_status = work.status(unit_id)
     except Exception:
         logger.warning(f'Cannot get receptor status for work unit {unit_id} (job {job.id}), deferring adoption')
         return False
@@ -1039,7 +1163,7 @@ def reattach_to_work_unit(job, receptor_ctl):
     process_phase_failed = False
     res = None
     try:
-        res = receptor_job._process_phase(receptor_ctl)  # blocks until unit completes
+        res = receptor_job._process_phase(work)  # blocks until unit completes
     except Exception:
         logger.exception(f'Adoption process phase failed for job {job.id} (unit={unit_id})')
         process_phase_failed = True
@@ -1053,22 +1177,22 @@ def reattach_to_work_unit(job, receptor_ctl):
     try:
         if res is not None:
             exit_code = 0 if getattr(res, 'status', '') == 'successful' else 1
-            _finalize_adopted_job(job, callback, exit_code, process_phase_failed)
+            _finalize_adopted_job(job, callback, exit_code, process_phase_failed, clock=clock)
         elif not process_phase_failed:
             logger.info(f'Job {job.id}: adoption deferred (handled in _handle_work_error)')
         else:
             # _process_phase raised — fall back to work status for exit code
             try:
-                unit_status = receptor_ctl.simple_command(f'work status {unit_id}')
+                unit_status = work.status(unit_id)
                 state_name = unit_status.get('StateName', '')
             except Exception:
                 logger.debug(f'Could not get final status for {unit_id} after process phase failure')
                 unit_status = {}
                 state_name = ''
             exit_code = _get_adoption_exit_code(unit_status, state_name)
-            _finalize_adopted_job(job, callback, exit_code, process_phase_failed)
+            _finalize_adopted_job(job, callback, exit_code, process_phase_failed, clock=clock)
     finally:
-        receptor_job._receptor_release_work(receptor_ctl, getattr(res, 'status', 'error'))
+        receptor_job._receptor_release_work(work, getattr(res, 'status', 'error'))
         shutil.rmtree(private_data_dir, ignore_errors=True)
 
     return True
